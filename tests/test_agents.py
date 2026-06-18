@@ -1,0 +1,56 @@
+"""Integration tests for the sequential mock review workflow."""
+
+from sqlalchemy.orm import Session
+
+from src.agents import run_review
+from src.database import create_database_engine
+from src.models import Base
+
+EXPECTED_AGENT_COUNT = 6
+
+
+def test_mock_review_approves_matching_claim() -> None:
+    """The documented mock claim reaches an approved decision."""
+    engine = create_database_engine("sqlite:///:memory:")
+    Base.metadata.create_all(engine)
+    claim = {
+        "claim_id": "CLM-0001",
+        "employee_id": "EMP-1023",
+        "employee_name": "Alicia Tan",
+        "department": "Sales",
+        "claim_date": "2026-06-18",
+        "expense_category": "Meals",
+        "expense_purpose": "Client lunch",
+        "claimed_amount": 45.90,
+        "currency": "MYR",
+        "receipt_file_path": "receipt.png",
+    }
+
+    with Session(engine) as session:
+        state = run_review(claim, "receipt.png", session, current_claim_id=1)
+
+    assert state["decision"] == "approved"
+    assert len(state["agent_trail"]) == EXPECTED_AGENT_COUNT
+
+
+def test_policy_violation_is_rejected() -> None:
+    """A clear policy limit violation takes rejection precedence."""
+    engine = create_database_engine("sqlite:///:memory:")
+    Base.metadata.create_all(engine)
+    claim = {
+        "claim_id": "CLM-0002",
+        "employee_id": "EMP-1023",
+        "employee_name": "Alicia Tan",
+        "department": "Sales",
+        "claim_date": "2026-06-18",
+        "expense_category": "Meals",
+        "expense_purpose": "Large team meal",
+        "claimed_amount": 150.00,
+        "currency": "MYR",
+        "receipt_file_path": "receipt.png",
+    }
+
+    with Session(engine) as session:
+        state = run_review(claim, "receipt.png", session, current_claim_id=2)
+
+    assert state["decision"] == "rejected"

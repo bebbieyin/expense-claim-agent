@@ -3,20 +3,16 @@
 Agentic AI system for automating employee expense claim review, extracting
 receipt details, validating claims, and routing exceptions to the relevant team.
 
-## Project baseline
+## Phase 1 features
 
-The repository currently provides the application and engineering scaffold:
-
-- FastAPI service with a `/health` endpoint
-- `uv` dependency management
-- Pytest, Ruff, and Bandit checks
-- Docker and Docker Compose support
-- `just` commands for common development tasks
-- Commitlint and semantic-release configuration
-- GitHub Actions for pull-request and release automation
-
-Expense extraction, policy validation, and exception-routing features will be
-added on top of this baseline.
+- Streamlit claim submission, dashboard, and claim detail tabs
+- SQLite and SQLAlchemy persistence
+- Local receipt uploads
+- Mock OCR and structured receipt extraction
+- Validation, policy, duplicate, decision, and explanation agents
+- Deterministic decisions: `approved`, `needs_review`, or `rejected`
+- Full persisted agent review trail
+- FastAPI `/health` endpoint retained for service monitoring
 
 ## Setup
 
@@ -39,6 +35,15 @@ Run the API locally:
 ```bash
 just run-local
 ```
+
+Run the Streamlit app:
+
+```bash
+just run-ui
+```
+
+The mock extractor always returns Restoran ABC, receipt date `2026-06-16`, and
+total `MYR 45.90`. Use those values when testing the approval path.
 
 Verify it from another terminal:
 
