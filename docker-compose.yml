@@ -1,10 +1,78 @@
 services:
+  db:
+    image: postgres:17-alpine
+    env_file:
+      - .env
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}",
+        ]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    restart: unless-stopped
+
   api:
     build:
       context: .
     image: expense-claim-agent:local
     env_file:
       - .env
+    environment:
+      DATABASE_URL: ""
+      POSTGRES_HOST: db
     ports:
       - "${PORT:-8000}:8000"
+    depends_on:
+      db:
+        condition: service_healthy
     restart: unless-stopped
+
+  ui:
+    image: expense-claim-agent:local
+    command:
+      [
+        "uv",
+        "run",
+        "--no-sync",
+        "streamlit",
+        "run",
+        "app.py",
+        "--server.address=0.0.0.0",
+        "--server.port=8501",
+      ]
+    env_file:
+      - .env
+    environment:
+      DATABASE_URL: ""
+      POSTGRES_HOST: db
+    ports:
+      - "${STREAMLIT_PORT:-8501}:8501"
+    volumes:
+      - uploads_data:/app/uploads
+    depends_on:
+      db:
+        condition: service_healthy
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "python",
+          "-c",
+          "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8501/_stcore/health', timeout=3).read()",
+        ]
+      interval: 30s
+      timeout: 5s
+      start_period: 10s
+      retries: 3
+    restart: unless-stopped
+
+volumes:
+  postgres_data:
+  uploads_data:

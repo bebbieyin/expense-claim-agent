@@ -1,44 +1,50 @@
-"""SQLite persistence helpers for expense claims."""
+"""Database persistence helpers for expense claims."""
 
 import json
 import os
 from pathlib import Path
 from typing import Any
+from urllib.parse import quote_plus
 
 from alembic import command
 from alembic.config import Config
 from sqlalchemy import Engine, create_engine, select
 from sqlalchemy.orm import Session, sessionmaker
 
-from src.models import Base, Claim, Employee
+from src.models import Claim, Employee
 from src.schemas import ClaimCreate, ClaimReviewState
 
-DEFAULT_DATABASE_URL = "sqlite:///data/expense_claims.db"
 AMOUNT_TOLERANCE = 0.01
 
 
+def get_database_url() -> str:
+    """Return a database URL from application environment variables."""
+    if database_url := os.getenv("DATABASE_URL"):
+        return database_url
+
+    user = quote_plus(os.getenv("POSTGRES_USER", ""))
+    password = quote_plus(os.getenv("POSTGRES_PASSWORD", ""))
+    host = os.getenv("POSTGRES_HOST", "localhost")
+    port = os.getenv("POSTGRES_PORT", "5432")
+    database = os.getenv("POSTGRES_DB", "expense_claims")
+    credentials = f"{user}:{password}@" if user and password else ""
+    return f"postgresql+psycopg://{credentials}{host}:{port}/{database}"
+
+
 def create_database_engine(database_url: str | None = None) -> Engine:
-    """Create an engine, ensuring the local SQLite directory exists."""
-    url = database_url or os.getenv("DATABASE_URL", DEFAULT_DATABASE_URL)
-    if url.startswith("sqlite:///") and url != "sqlite:///:memory:":
-        Path(url.removeprefix("sqlite:///")).parent.mkdir(parents=True, exist_ok=True)
-    return create_engine(url, connect_args={"check_same_thread": False})
+    """Create an engine for the configured database."""
+    url = database_url or get_database_url()
+    return create_engine(url)
 
 
 engine = create_database_engine()
 SessionLocal = sessionmaker(bind=engine, expire_on_commit=False)
 
 
-def init_database(db_engine: Engine = engine) -> None:
-    """Create application tables for isolated tests."""
-    Base.metadata.create_all(db_engine)
-
-
 def run_migrations(database_url: str | None = None) -> None:
     """Apply all pending Alembic migrations."""
     config = Config(Path(__file__).parent.parent / "alembic.ini")
-    if database_url:
-        config.set_main_option("sqlalchemy.url", database_url)
+    config.set_main_option("sqlalchemy.url", database_url or get_database_url())
     command.upgrade(config, "head")
 
 

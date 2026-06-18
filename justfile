@@ -9,6 +9,7 @@ default:
     @echo "  just setup          # install all development dependencies"
     @echo "  just run-local      # run the API with auto-reload"
     @echo "  just run-ui  # run the expense claim UI"
+    @echo "  just db-up          # start PostgreSQL"
     @echo "  just migrate        # apply database migrations"
     @echo "  just check          # run lint, security, and test checks"
     @echo "  just deploy-local   # rebuild and run with Docker"
@@ -28,6 +29,10 @@ run-local:
 # Run the Phase 1 Streamlit application.
 run-ui:
     uv run streamlit run app.py
+
+# Start PostgreSQL for local development.
+db-up:
+    docker compose up -d db
 
 # Apply all pending database migrations.
 migrate:
@@ -53,6 +58,7 @@ test:
 deploy-local: test
     docker compose up --build -d
     @echo "Local API: {{local_url}}"
+    @echo "Streamlit UI: http://127.0.0.1:8501"
 
 # Call the local health endpoint.
 health:
@@ -60,7 +66,7 @@ health:
 
 # Follow API logs from Docker Compose.
 logs:
-    docker compose logs -f api
+    docker compose logs -f api ui db
 
 # Stop the Dockerized API.
 stop:
