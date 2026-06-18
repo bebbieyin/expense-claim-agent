@@ -9,6 +9,7 @@ default:
     @echo "  just setup          # install all development dependencies"
     @echo "  just run-local      # run the API with auto-reload"
     @echo "  just run-ui  # run the expense claim UI"
+    @echo "  just migrate        # apply database migrations"
     @echo "  just check          # run lint, security, and test checks"
     @echo "  just deploy-local   # rebuild and run with Docker"
     @echo "  just health         # call the local health endpoint"
@@ -27,6 +28,10 @@ run-local:
 # Run the Phase 1 Streamlit application.
 run-ui:
     uv run streamlit run app.py
+
+# Apply all pending database migrations.
+migrate:
+    uv run alembic upgrade head
 
 # Run all local quality checks.
 check: lint security test
