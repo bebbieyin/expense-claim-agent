@@ -69,15 +69,24 @@ def update_claim_review(
     session.commit()
 
 
-def list_claims(session: Session) -> list[Claim]:
-    """Return newest claims first."""
+def list_claims(session: Session, employee_id: str | None = None) -> list[Claim]:
+    """Return newest claims, optionally scoped to one employee."""
     statement = select(Claim).order_by(Claim.created_at.desc(), Claim.id.desc())
+    if employee_id:
+        statement = statement.where(Claim.employee_id == employee_id)
     return list(session.scalars(statement))
 
 
-def get_claim(session: Session, claim_id: str) -> Claim | None:
-    """Find a claim by its public identifier."""
-    return session.scalar(select(Claim).where(Claim.claim_id == claim_id))
+def get_claim(
+    session: Session,
+    claim_id: str,
+    employee_id: str | None = None,
+) -> Claim | None:
+    """Find a claim, optionally restricting access to one employee."""
+    statement = select(Claim).where(Claim.claim_id == claim_id)
+    if employee_id:
+        statement = statement.where(Claim.employee_id == employee_id)
+    return session.scalar(statement)
 
 
 def find_duplicate_receipt(
