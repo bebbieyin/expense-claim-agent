@@ -1,0 +1,10 @@
+services:
+  api:
+    build:
+      context: .
+    image: expense-claim-agent:local
+    env_file:
+      - .env
+    ports:
+      - "${PORT:-8000}:8000"
+    restart: unless-stopped
