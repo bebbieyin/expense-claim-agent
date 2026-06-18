@@ -17,7 +17,7 @@ from src.database import (
     run_migrations,
     update_claim_review,
 )
-from src.models import Claim
+from src.models import Claim, Employee
 from src.schemas import ClaimCreate
 from src.utils import next_claim_id, save_uploaded_receipt
 
@@ -39,18 +39,11 @@ def _render_checks(title: str, checks: list[dict[str, str]]) -> None:
         st.write(f"{icon} **{label}** — {check['message']}")
 
 
-def render_submit_tab() -> None:
+def render_submit_tab(employee: Employee) -> None:
     """Render and process the expense submission form."""
     st.header("Submit Expense Claim")
     st.caption(
         "Phase 1 uses a mock receipt extraction: Restoran ABC, 2026-06-16, MYR 45.90.",
-    )
-    with SessionLocal() as session:
-        employees = list_employees(session)
-    employee = st.selectbox(
-        "Employee name",
-        employees,
-        format_func=lambda item: item.employee_name,
     )
     st.text_input("Employee ID", value=employee.employee_id, disabled=True)
 
@@ -117,11 +110,11 @@ def render_submit_tab() -> None:
     st.write(state["review_summary"])
 
 
-def render_dashboard_tab() -> None:
-    """Render all persisted claims."""
-    st.header("Claims Dashboard")
+def render_dashboard_tab(employee_id: str | None = None) -> None:
+    """Render claims available to the current view."""
+    st.header("My Claims" if employee_id else "Finance Claims Dashboard")
     with SessionLocal() as session:
-        claims = list_claims(session)
+        claims = list_claims(session, employee_id)
     if not claims:
         st.info("No claims have been submitted.")
         return
@@ -142,11 +135,11 @@ def render_dashboard_tab() -> None:
     st.dataframe(rows, use_container_width=True, hide_index=True)
 
 
-def render_detail_tab() -> None:
-    """Render the complete review record for one claim."""
+def render_detail_tab(employee_id: str | None = None) -> None:
+    """Render an accessible claim review record."""
     st.header("Claim Detail")
     with SessionLocal() as session:
-        claims = list_claims(session)
+        claims = list_claims(session, employee_id)
         claim_ids = [claim.claim_id for claim in claims]
     if not claim_ids:
         st.info("Submit a claim to view its details.")
@@ -154,7 +147,7 @@ def render_detail_tab() -> None:
 
     selected_id = st.selectbox("Claim ID", claim_ids)
     with SessionLocal() as session:
-        claim = get_claim(session, selected_id)
+        claim = get_claim(session, selected_id, employee_id)
     if claim is None:
         st.error("Claim could not be found.")
         return
@@ -204,12 +197,29 @@ def render_detail_tab() -> None:
 st.set_page_config(page_title="Expense Claim Agent", page_icon="🧾", layout="wide")
 run_migrations()
 st.title("Expense Claim Agent")
-submit_tab, dashboard_tab, detail_tab = st.tabs(
-    ["Submit Claim", "Claims Dashboard", "Claim Detail"],
-)
-with submit_tab:
-    render_submit_tab()
-with dashboard_tab:
-    render_dashboard_tab()
-with detail_tab:
-    render_detail_tab()
+view = st.sidebar.selectbox("View as", ["Employee", "Finance Team"])
+
+if view == "Employee":
+    with SessionLocal() as session:
+        employees = list_employees(session)
+    employee = st.sidebar.selectbox(
+        "Employee",
+        employees,
+        format_func=lambda item: item.employee_name,
+    )
+    st.sidebar.caption(f"Employee ID: {employee.employee_id}")
+    submit_tab, dashboard_tab, detail_tab = st.tabs(
+        ["Submit Claim", "My Claims", "Claim Detail"],
+    )
+    with submit_tab:
+        render_submit_tab(employee)
+    with dashboard_tab:
+        render_dashboard_tab(employee.employee_id)
+    with detail_tab:
+        render_detail_tab(employee.employee_id)
+else:
+    dashboard_tab, detail_tab = st.tabs(["Claims Dashboard", "Claim Detail"])
+    with dashboard_tab:
+        render_dashboard_tab()
+    with detail_tab:
+        render_detail_tab()
