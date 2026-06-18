@@ -10,6 +10,16 @@ class Base(DeclarativeBase):
     """Base for application database models."""
 
 
+class Employee(Base):
+    """An employee available for expense claim submission."""
+
+    __tablename__ = "employees"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    employee_id: Mapped[str] = mapped_column(String(64), unique=True, index=True)
+    employee_name: Mapped[str] = mapped_column(String(120), index=True)
+
+
 class Claim(Base):
     """A submitted claim and its review result."""
 

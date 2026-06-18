@@ -6,6 +6,7 @@ readme = "README.md"
 requires-python = ">=3.12,<3.15"
 authors = [{ name = "Boon Yin Yin" }]
 dependencies = [
+    "alembic",
     "fastapi",
     "pydantic",
     "python-dotenv",

@@ -12,8 +12,9 @@ from src.database import (
     SessionLocal,
     create_claim,
     get_claim,
-    init_database,
     list_claims,
+    list_employees,
+    run_migrations,
     update_claim_review,
 )
 from src.models import Claim
@@ -44,10 +45,17 @@ def render_submit_tab() -> None:
     st.caption(
         "Phase 1 uses a mock receipt extraction: Restoran ABC, 2026-06-16, MYR 45.90.",
     )
+    with SessionLocal() as session:
+        employees = list_employees(session)
+    employee = st.selectbox(
+        "Employee name",
+        employees,
+        format_func=lambda item: item.employee_name,
+    )
+    st.text_input("Employee ID", value=employee.employee_id, disabled=True)
+
     with st.form("claim-form", clear_on_submit=False):
         left, right = st.columns(2)
-        employee_name = left.text_input("Employee name")
-        employee_id = right.text_input("Employee ID")
         department = left.selectbox("Department", DEPARTMENTS)
         claim_date = right.date_input("Claim date", value=datetime.now(tz=UTC).date())
         category = left.selectbox("Expense category", EXPENSE_CATEGORIES)
@@ -66,7 +74,7 @@ def render_submit_tab() -> None:
 
     if not submitted:
         return
-    required_fields = [employee_name, employee_id, department, purpose]
+    required_fields = [department, purpose]
     if not all(value.strip() for value in required_fields):
         st.error("Complete all text fields before submitting.")
         return
@@ -79,8 +87,8 @@ def render_submit_tab() -> None:
         last_id = session.scalar(select(func.max(Claim.id)))
         claim_data = ClaimCreate(
             claim_id=next_claim_id(last_id),
-            employee_id=employee_id.strip(),
-            employee_name=employee_name.strip(),
+            employee_id=employee.employee_id,
+            employee_name=employee.employee_name,
             department=department.strip(),
             claim_date=claim_date,
             expense_category=category,
@@ -194,7 +202,7 @@ def render_detail_tab() -> None:
 
 
 st.set_page_config(page_title="Expense Claim Agent", page_icon="🧾", layout="wide")
-init_database()
+run_migrations()
 st.title("Expense Claim Agent")
 submit_tab, dashboard_tab, detail_tab = st.tabs(
     ["Submit Claim", "Claims Dashboard", "Claim Detail"],

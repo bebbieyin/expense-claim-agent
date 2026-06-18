@@ -184,6 +184,12 @@ __marimo__/
 # Streamlit
 .streamlit/secrets.toml
 
+# Local application data
+data/*.db
+data/*.sqlite
+uploads/*
+!uploads/.gitkeep
+
 # Node
 node_modules/
 

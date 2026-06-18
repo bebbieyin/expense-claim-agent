@@ -5,10 +5,12 @@ import os
 from pathlib import Path
 from typing import Any
 
+from alembic import command
+from alembic.config import Config
 from sqlalchemy import Engine, create_engine, select
 from sqlalchemy.orm import Session, sessionmaker
 
-from src.models import Base, Claim
+from src.models import Base, Claim, Employee
 from src.schemas import ClaimCreate, ClaimReviewState
 
 DEFAULT_DATABASE_URL = "sqlite:///data/expense_claims.db"
@@ -28,8 +30,21 @@ SessionLocal = sessionmaker(bind=engine, expire_on_commit=False)
 
 
 def init_database(db_engine: Engine = engine) -> None:
-    """Create application tables when they do not exist."""
+    """Create application tables for isolated tests."""
     Base.metadata.create_all(db_engine)
+
+
+def run_migrations(database_url: str | None = None) -> None:
+    """Apply all pending Alembic migrations."""
+    config = Config(Path(__file__).parent.parent / "alembic.ini")
+    if database_url:
+        config.set_main_option("sqlalchemy.url", database_url)
+    command.upgrade(config, "head")
+
+
+def list_employees(session: Session) -> list[Employee]:
+    """Return employees ordered by name."""
+    return list(session.scalars(select(Employee).order_by(Employee.employee_name)))
 
 
 def create_claim(session: Session, claim_data: ClaimCreate) -> Claim:
