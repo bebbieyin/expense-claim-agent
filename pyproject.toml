@@ -8,6 +8,7 @@ authors = [{ name = "Boon Yin Yin" }]
 dependencies = [
     "alembic",
     "fastapi",
+    "psycopg[binary]",
     "pydantic",
     "python-dotenv",
     "sqlalchemy",

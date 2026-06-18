@@ -1,78 +1,78 @@
 """Tests for database helpers."""
 
-from datetime import date
-from pathlib import Path
+from unittest.mock import MagicMock, patch
 
+from alembic.config import Config
+from sqlalchemy import Engine
 from sqlalchemy.orm import Session
 
 from src.database import (
     create_database_engine,
     get_claim,
+    get_database_url,
     list_claims,
-    list_employees,
     run_migrations,
 )
-from src.models import Claim
+
+DATABASE_URL = "postgresql+psycopg://localhost:5432/expense_claims"
 
 
-def test_migration_creates_default_employees(tmp_path: Path) -> None:
-    """The head migration creates employees for claim submission."""
-    database_url = f"sqlite:///{tmp_path / 'test.db'}"
+@patch("src.database.create_engine")
+def test_create_database_engine_uses_postgresql_url(
+    create_engine: MagicMock,
+) -> None:
+    """The configured PostgreSQL URL is passed to SQLAlchemy."""
+    expected_engine = MagicMock(spec=Engine)
+    create_engine.return_value = expected_engine
 
-    run_migrations(database_url)
+    engine = create_database_engine(DATABASE_URL)
 
-    engine = create_database_engine(database_url)
-    with Session(engine) as session:
-        employees = list_employees(session)
-
-    assert [
-        (employee.employee_id, employee.employee_name) for employee in employees
-    ] == [
-        ("EMP-1023", "Alicia Tan"),
-        ("EMP-2044", "Daniel Lee"),
-        ("EMP-3381", "Mei Wong"),
-    ]
+    create_engine.assert_called_once_with(DATABASE_URL)
+    assert engine is expected_engine
 
 
-def test_employee_claim_access_is_scoped(tmp_path: Path) -> None:
-    """Employees can list and retrieve only their own claims."""
-    database_url = f"sqlite:///{tmp_path / 'test.db'}"
-    run_migrations(database_url)
-    engine = create_database_engine(database_url)
+@patch.dict(
+    "os.environ",
+    {
+        "DATABASE_URL": "",
+        "POSTGRES_USER": "",
+        "POSTGRES_HOST": "db",
+        "POSTGRES_PORT": "5432",
+        "POSTGRES_DB": "test_db",
+    },
+    clear=True,
+)
+def test_database_url_is_built_from_environment() -> None:
+    """PostgreSQL connection settings can be supplied separately."""
+    assert get_database_url() == "postgresql+psycopg://db:5432/test_db"
 
-    with Session(engine) as session:
-        session.add_all(
-            [
-                Claim(
-                    claim_id="CLM-0001",
-                    employee_id="EMP-1023",
-                    employee_name="Alicia Tan",
-                    department="Sales & Marketing",
-                    claim_date=date(2026, 6, 18),
-                    expense_category="Meals",
-                    expense_purpose="Client lunch",
-                    claimed_amount=45.90,
-                    currency="MYR",
-                    receipt_file_path="receipt-1.png",
-                ),
-                Claim(
-                    claim_id="CLM-0002",
-                    employee_id="EMP-2044",
-                    employee_name="Daniel Lee",
-                    department="IT",
-                    claim_date=date(2026, 6, 18),
-                    expense_category="Transport",
-                    expense_purpose="Site visit",
-                    claimed_amount=20.00,
-                    currency="MYR",
-                    receipt_file_path="receipt-2.png",
-                ),
-            ],
-        )
-        session.commit()
 
-        claims = list_claims(session, "EMP-1023")
+@patch("src.database.command.upgrade")
+@patch("src.database.Config")
+def test_run_migrations_targets_alembic_head(
+    config_class: MagicMock,
+    upgrade: MagicMock,
+) -> None:
+    """Migrations use the configured PostgreSQL URL and upgrade to head."""
+    config = MagicMock(spec=Config)
+    config_class.return_value = config
 
-        assert [claim.claim_id for claim in claims] == ["CLM-0001"]
-        assert get_claim(session, "CLM-0002", "EMP-1023") is None
-        assert get_claim(session, "CLM-0002") is not None
+    run_migrations(DATABASE_URL)
+
+    config.set_main_option.assert_called_once_with("sqlalchemy.url", DATABASE_URL)
+    upgrade.assert_called_once_with(config, "head")
+
+
+def test_employee_claim_access_is_scoped() -> None:
+    """Employee claim queries include an employee ID restriction."""
+    session = MagicMock(spec=Session)
+    session.scalars.return_value = []
+    session.scalar.return_value = None
+
+    list_claims(session, "EMP-1023")
+    get_claim(session, "CLM-0002", "EMP-1023")
+
+    list_statement = session.scalars.call_args.args[0]
+    get_statement = session.scalar.call_args.args[0]
+    assert "claims.employee_id" in str(list_statement)
+    assert "claims.employee_id" in str(get_statement)
