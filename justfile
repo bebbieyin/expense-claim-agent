@@ -8,6 +8,7 @@ default:
     @echo "Main workflow:"
     @echo "  just setup          # install all development dependencies"
     @echo "  just run-local      # run the API with auto-reload"
+    @echo "  just run-ui  # run the expense claim UI"
     @echo "  just check          # run lint, security, and test checks"
     @echo "  just deploy-local   # rebuild and run with Docker"
     @echo "  just health         # call the local health endpoint"
@@ -22,6 +23,10 @@ setup:
 # Run the app locally without Docker.
 run-local:
     uv run uvicorn src.main:app --host 127.0.0.1 --port {{port}} --reload
+
+# Run the Phase 1 Streamlit application.
+run-ui:
+    uv run streamlit run app.py
 
 # Run all local quality checks.
 check: lint security test
