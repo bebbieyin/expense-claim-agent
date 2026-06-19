@@ -2,6 +2,7 @@
 
 import json
 import os
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 from urllib.parse import quote_plus
@@ -71,7 +72,23 @@ def update_claim_review(
     claim.decision = state["decision"]
     claim.review_summary = state["review_summary"]
     claim.raw_agent_state = json.dumps(state, default=str)
+    claim.extracted_receipt = state["extracted_receipt"]
     claim.langfuse_trace_id = state["langfuse_trace_id"]
+    session.commit()
+
+
+def update_receipt_correction(
+    session: Session,
+    claim: Claim,
+    corrected_receipt: dict[str, Any],
+    validation_results: list[dict[str, Any]],
+    corrected_by: str,
+) -> None:
+    """Store a corrected receipt and its validation results."""
+    claim.corrected_receipt = corrected_receipt
+    claim.corrected_validation_results = validation_results
+    claim.corrected_by = corrected_by
+    claim.corrected_at = datetime.now(tz=UTC)
     session.commit()
 
 

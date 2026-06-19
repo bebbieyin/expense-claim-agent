@@ -12,6 +12,8 @@ from src.database.operations import (
     get_database_url,
     list_claims,
     run_migrations,
+    update_claim_review,
+    update_receipt_correction,
 )
 
 DATABASE_URL = "postgresql+psycopg://localhost:5432/expense_claims"
@@ -76,3 +78,57 @@ def test_employee_claim_access_is_scoped() -> None:
     get_statement = session.scalar.call_args.args[0]
     assert "claims.employee_id" in str(list_statement)
     assert "claims.employee_id" in str(get_statement)
+
+
+def test_receipt_correction_preserves_extracted_receipt() -> None:
+    """Human corrections are stored separately from AI extraction."""
+    session = MagicMock(spec=Session)
+    claim = MagicMock()
+    claim.extracted_receipt = {"total_amount": 55.0}
+    corrected = {
+        "merchant_name": "Example Store",
+        "merchant_address": None,
+        "receipt_date": "2026-06-19",
+        "total_amount": 56.0,
+        "currency": "MYR",
+    }
+    validation_results = [
+        {
+            "check": "amount_match",
+            "status": "passed",
+            "message": "Claimed amount matches receipt total.",
+        },
+    ]
+
+    update_receipt_correction(
+        session,
+        claim,
+        corrected,
+        validation_results,
+        "EMP-1023",
+    )
+
+    assert claim.extracted_receipt == {"total_amount": 55.0}
+    assert claim.corrected_receipt == corrected
+    assert claim.corrected_validation_results == validation_results
+    assert claim.corrected_by == "EMP-1023"
+    assert claim.corrected_at is not None
+    session.commit.assert_called_once()
+
+
+def test_claim_review_stores_extracted_receipt_for_evaluation() -> None:
+    """Completed reviews persist a queryable extraction snapshot."""
+    session = MagicMock(spec=Session)
+    claim = MagicMock()
+    extracted = {"merchant_name": "Example Store", "total_amount": 56.0}
+    state = {
+        "decision": "approved",
+        "review_summary": "Approved.",
+        "extracted_receipt": extracted,
+        "langfuse_trace_id": "trace-id",
+    }
+
+    update_claim_review(session, claim, state)  # type: ignore[arg-type]
+
+    assert claim.extracted_receipt == extracted
+    session.commit.assert_called_once()
