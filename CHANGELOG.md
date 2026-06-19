@@ -1,3 +1,10 @@
+# [1.4.0](https://github.com/bebbieyin/expense-claim-agent/compare/v1.3.0+master...v1.4.0+master) (2026-06-19)
+
+
+### Features
+
+* CU-86ey06kuj - add human review workflow ([ebb0184](https://github.com/bebbieyin/expense-claim-agent/commit/ebb01843672227ddb79420b3776c90330ac79e6e))
+
 # [1.3.0](https://github.com/bebbieyin/expense-claim-agent/compare/v1.2.0+master...v1.3.0+master) (2026-06-19)
 
 
