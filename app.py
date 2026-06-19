@@ -459,7 +459,7 @@ def render_extraction_review_tab(employee_id: str | None = None) -> None:
 
 def render_claim_checks_tab(employee_id: str | None = None) -> None:
     """Render automated and corrected claim checks."""
-    st.header("Claim Checks")
+    st.header("Claim Audit Trail")
     claim = _select_claim(employee_id, "claim-checks-claim")
     if claim is None:
         return
@@ -553,7 +553,7 @@ else:
             "Approval Queue",
             "Claims Dashboard",
             "Review Extraction",
-            "Claim Checks",
+            "Claim Audit Trail",
             "Review Rules",
         ],
     )
