@@ -2,11 +2,19 @@
 
 from unittest.mock import MagicMock
 
+import pytest
 from sqlalchemy.orm import Session
 
 from src.agents import run_review
 
 EXPECTED_AGENT_COUNT = 6
+
+
+@pytest.fixture(autouse=True)
+def mock_providers(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Keep mock workflow tests independent from local provider settings."""
+    monkeypatch.setenv("OCR_PROVIDER", "mock")
+    monkeypatch.setenv("LLM_PROVIDER", "mock")
 
 
 def test_mock_review_approves_matching_claim() -> None:
