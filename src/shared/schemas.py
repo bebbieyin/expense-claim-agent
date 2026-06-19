@@ -36,7 +36,6 @@ class ExtractedReceipt(BaseModel):
     total_amount: float | None
     currency: str | None
     confidence: float = Field(ge=0, le=1)
-    source_text: str
 
 
 class OCRLine(BaseModel):

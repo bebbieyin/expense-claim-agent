@@ -79,7 +79,7 @@ docstring-code-format = true
 docstring-code-line-length = 120
 
 [tool.hatch.build.targets.wheel]
-packages = ["experiments", "src"]
+packages = ["experiments", "prompts", "src"]
 
 [build-system]
 requires = ["hatchling>=1.26"]
