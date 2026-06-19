@@ -26,7 +26,7 @@ setup:
 run-local:
     uv run uvicorn src.main:app --host 127.0.0.1 --port {{port}} --reload
 
-# Run the Phase 1 Streamlit application.
+# Run the Streamlit application.
 run-ui:
     uv run streamlit run app.py
 

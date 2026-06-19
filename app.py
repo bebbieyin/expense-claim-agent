@@ -1,12 +1,14 @@
-"""Streamlit interface for the Phase 1 expense claim review app."""
+"""Streamlit interface for the expense claim review app."""
 
 import json
+import os
 from datetime import UTC, datetime
 from pathlib import Path
 
 import streamlit as st
 from sqlalchemy import func, select
 
+from src.client.langfuse_client import get_trace_url
 from src.database.entities import Claim, Employee
 from src.database.operations import (
     SessionLocal,
@@ -42,8 +44,15 @@ def _render_checks(title: str, checks: list[dict[str, str]]) -> None:
 def render_submit_tab(employee: Employee) -> None:
     """Render and process the expense submission form."""
     st.header("Submit Expense Claim")
+    langfuse_status = (
+        "enabled"
+        if os.getenv("LANGFUSE_ENABLED", "false").lower() == "true"
+        else "disabled"
+    )
     st.caption(
-        "Phase 1 uses a mock receipt extraction: Restoran ABC, 2026-06-16, MYR 45.90.",
+        f"OCR: {os.getenv('OCR_PROVIDER', 'mock')} · "
+        f"Extraction: {os.getenv('LLM_PROVIDER', 'mock')} · "
+        f"Langfuse: {langfuse_status}",
     )
     st.text_input("Employee ID", value=employee.employee_id, disabled=True)
 
@@ -102,6 +111,7 @@ def render_submit_tab(employee: Employee) -> None:
         except Exception as exc:  # noqa: BLE001
             claim.status = "failed"
             claim.review_summary = f"Review failed: {exc}"
+            claim.langfuse_trace_id = getattr(exc, "langfuse_trace_id", None)
             session.commit()
             st.error(f"Claim {claim.claim_id} was stored, but review failed.")
             return
@@ -177,6 +187,8 @@ def render_detail_tab(employee_id: str | None = None) -> None:
 
     st.subheader("Extracted Receipt")
     st.json(state.get("extracted_receipt") or {})
+    st.subheader("Raw OCR Text")
+    st.code(state.get("raw_ocr_text") or "No OCR text recorded.", language=None)
     _render_checks("Validation Results", state.get("validation_results", []))
     _render_checks("Policy Results", state.get("policy_results", []))
     _render_checks("Duplicate Check", state.get("duplicate_results", []))
@@ -191,7 +203,13 @@ def render_detail_tab(employee_id: str | None = None) -> None:
         st.write(step["message"])
 
     st.subheader("Langfuse")
-    st.write(claim.langfuse_trace_id or "Not connected in Phase 1.")
+    if claim.langfuse_trace_id:
+        trace_url = get_trace_url(claim.langfuse_trace_id)
+        if trace_url:
+            st.link_button("Open Langfuse trace", trace_url)
+        st.code(claim.langfuse_trace_id, language=None)
+    else:
+        st.write("No Langfuse trace was recorded.")
 
 
 st.set_page_config(page_title="Expense Claim Agent", page_icon="🧾", layout="wide")

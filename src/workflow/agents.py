@@ -1,9 +1,15 @@
 """Sequential mock agents for the Phase 1 claim review workflow."""
 
+import os
 from typing import Any
 
 from sqlalchemy.orm import Session
 
+from src.client.langfuse_client import (
+    get_langfuse_client,
+    is_langfuse_enabled,
+    observation,
+)
 from src.database.operations import find_duplicate_receipt
 from src.shared.schemas import CheckResult, ClaimReviewState, ExtractedReceipt
 from src.workflow.extraction import extract_receipt_fields
@@ -12,6 +18,15 @@ from src.workflow.policy import check_policy
 from src.workflow.validation import validate_claim
 
 MINIMUM_EXTRACTION_CONFIDENCE = 0.75
+
+
+class ClaimReviewError(RuntimeError):
+    """A claim review failure with its optional Langfuse trace ID."""
+
+    def __init__(self, message: str, langfuse_trace_id: str | None = None) -> None:
+        """Initialize the review failure."""
+        super().__init__(message)
+        self.langfuse_trace_id = langfuse_trace_id
 
 
 def _serialized(results: list[CheckResult]) -> list[dict[str, Any]]:
@@ -23,9 +38,29 @@ def _add_trail(state: ClaimReviewState, agent: str, message: str) -> None:
 
 
 def receipt_extraction_agent(state: ClaimReviewState) -> None:
-    """Populate mock OCR and structured receipt values."""
-    raw_text = extract_text_from_receipt(state["receipt_file_path"])
-    receipt = extract_receipt_fields(raw_text)
+    """Populate OCR and structured receipt values."""
+    with observation(
+        name="receipt-ocr",
+        input_data={"receipt_file_path": state["receipt_file_path"]},
+        metadata={"provider": os.getenv("OCR_PROVIDER", "mock")},
+    ) as ocr_span:
+        raw_text = extract_text_from_receipt(state["receipt_file_path"])
+        if ocr_span is not None:
+            ocr_span.update(output={"raw_ocr_text": raw_text})
+
+    with observation(
+        name="receipt-extraction",
+        as_type="generation",
+        input_data={"raw_ocr_text": raw_text},
+        metadata={
+            "provider": os.getenv("LLM_PROVIDER", "mock"),
+            "model": os.getenv("AZURE_OPENAI_DEPLOYMENT"),
+        },
+    ) as extraction_generation:
+        receipt = extract_receipt_fields(raw_text)
+        if extraction_generation is not None:
+            extraction_generation.update(output=receipt.model_dump(mode="json"))
+
     state["raw_ocr_text"] = raw_text
     state["extracted_receipt"] = receipt.model_dump(mode="json")
     _add_trail(
@@ -146,7 +181,7 @@ def run_review(
     session: Session,
     current_claim_id: int,
 ) -> ClaimReviewState:
-    """Run the Phase 1 agents in a controlled sequence."""
+    """Run the claim review agents in a controlled sequence."""
     state: ClaimReviewState = {
         "claim": claim,
         "receipt_file_path": receipt_file_path,
@@ -162,11 +197,36 @@ def run_review(
         "agent_trail": [],
     }
 
-    # TODO(phase-5): Use a LangGraph workflow.  # noqa: FIX002, TD003
-    receipt_extraction_agent(state)
-    claim_validation_agent(state)
-    policy_compliance_agent(state)
-    duplicate_check_agent(state, session, current_claim_id)
-    decision_agent(state)
-    explanation_agent(state)
+    client = get_langfuse_client() if is_langfuse_enabled() else None
+    if client is not None:
+        state["langfuse_trace_id"] = client.create_trace_id()
+
+    try:
+        with observation(
+            name="claim-review",
+            as_type="chain",
+            input_data=claim,
+            metadata={"claim_id": claim["claim_id"]},
+            trace_id=state["langfuse_trace_id"],
+        ) as claim_trace:
+            # TODO(phase-5): Use a LangGraph workflow.  # noqa: FIX002, TD003
+            receipt_extraction_agent(state)
+            claim_validation_agent(state)
+            policy_compliance_agent(state)
+            duplicate_check_agent(state, session, current_claim_id)
+            decision_agent(state)
+            explanation_agent(state)
+            if claim_trace is not None:
+                claim_trace.update(
+                    output={
+                        "decision": state["decision"],
+                        "review_summary": state["review_summary"],
+                    }
+                )
+    except Exception as exc:
+        raise ClaimReviewError(str(exc), state["langfuse_trace_id"]) from exc
+    finally:
+        if client is not None:
+            client.flush()
+
     return state
