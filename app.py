@@ -21,6 +21,7 @@ from src.database.operations import (
 from src.shared.schemas import ClaimCreate
 from src.shared.utils import next_claim_id, save_uploaded_receipt
 from src.workflow.agents import run_review
+from src.workflow.policy import POLICIES
 
 EXPENSE_CATEGORIES = ["Meals", "Transport", "Office Supplies", "Medical"]
 DEPARTMENTS = ["Sales & Marketing", "IT", "HR", "Finance", "Operations"]
@@ -145,6 +146,68 @@ def render_dashboard_tab(employee_id: str | None = None) -> None:
     st.dataframe(rows, use_container_width=True, hide_index=True)
 
 
+def render_review_rules_tab() -> None:
+    """Render the expense policy and validation checks."""
+    st.header("Expense Policy and Validation Checks")
+    st.subheader("Expense Policy")
+    st.write(
+        "Claims are reviewed against the category limits and receipt "
+        "requirements below.",
+    )
+    rows = [
+        {
+            "Expense Category": category,
+            "Maximum Amount": float(policy["max_amount"]),
+            "Currency": "MYR",
+            "Receipt Required": "Yes" if policy["receipt_required"] else "No",
+        }
+        for category, policy in POLICIES.items()
+    ]
+    st.dataframe(rows, use_container_width=True, hide_index=True)
+    st.info(
+        "Claims above the maximum amount are rejected. Missing receipts and "
+        "receipt details that do not match the claim require manual review.",
+    )
+
+    st.subheader("Validation Checks")
+    st.write("The submitted claim is compared with the extracted receipt details.")
+    validation_rows = [
+        {
+            "Check": "Amount match",
+            "Requirement": "Claimed amount must match the receipt total.",
+        },
+        {
+            "Check": "Receipt date",
+            "Requirement": "Receipt date must be on or before the claim date.",
+        },
+        {
+            "Check": "Merchant name",
+            "Requirement": "The receipt must contain a merchant name.",
+        },
+        {
+            "Check": "Receipt total",
+            "Requirement": "The receipt must contain a total amount.",
+        },
+        {
+            "Check": "Currency match",
+            "Requirement": "Claim and receipt currencies must match.",
+        },
+        {
+            "Check": "Positive amount",
+            "Requirement": "The claimed amount must be greater than zero.",
+        },
+        {
+            "Check": "Duplicate receipt",
+            "Requirement": "The receipt must not match an earlier employee claim.",
+        },
+        {
+            "Check": "Extraction confidence",
+            "Requirement": "Receipt extraction confidence must be at least 75%.",
+        },
+    ]
+    st.dataframe(validation_rows, use_container_width=True, hide_index=True)
+
+
 def render_detail_tab(employee_id: str | None = None) -> None:
     """Render an accessible claim review record."""
     st.header("Claim Detail")
@@ -237,8 +300,8 @@ if view == "Employee":
         format_func=lambda item: item.employee_name,
     )
     st.sidebar.caption(f"Employee ID: {employee.employee_id}")
-    submit_tab, dashboard_tab, detail_tab = st.tabs(
-        ["Submit Claim", "My Claims", "Claim Detail"],
+    submit_tab, dashboard_tab, detail_tab, policy_tab = st.tabs(
+        ["Submit Claim", "My Claims", "Claim Detail", "Review Rules"],
     )
     with submit_tab:
         render_submit_tab(employee)
@@ -246,9 +309,15 @@ if view == "Employee":
         render_dashboard_tab(employee.employee_id)
     with detail_tab:
         render_detail_tab(employee.employee_id)
+    with policy_tab:
+        render_review_rules_tab()
 else:
-    dashboard_tab, detail_tab = st.tabs(["Claims Dashboard", "Claim Detail"])
+    dashboard_tab, detail_tab, policy_tab = st.tabs(
+        ["Claims Dashboard", "Claim Detail", "Review Rules"],
+    )
     with dashboard_tab:
         render_dashboard_tab()
     with detail_tab:
         render_detail_tab()
+    with policy_tab:
+        render_review_rules_tab()
