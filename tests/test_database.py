@@ -6,7 +6,7 @@ from alembic.config import Config
 from sqlalchemy import Engine
 from sqlalchemy.orm import Session
 
-from src.database import (
+from src.database.operations import (
     create_database_engine,
     get_claim,
     get_database_url,
@@ -17,7 +17,7 @@ from src.database import (
 DATABASE_URL = "postgresql+psycopg://localhost:5432/expense_claims"
 
 
-@patch("src.database.create_engine")
+@patch("src.database.operations.create_engine")
 def test_create_database_engine_uses_postgresql_url(
     create_engine: MagicMock,
 ) -> None:
@@ -47,8 +47,8 @@ def test_database_url_is_built_from_environment() -> None:
     assert get_database_url() == "postgresql+psycopg://db:5432/test_db"
 
 
-@patch("src.database.command.upgrade")
-@patch("src.database.Config")
+@patch("src.database.operations.command.upgrade")
+@patch("src.database.operations.Config")
 def test_run_migrations_targets_alembic_head(
     config_class: MagicMock,
     upgrade: MagicMock,

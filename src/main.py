@@ -2,7 +2,7 @@
 
 from fastapi import FastAPI
 
-from src.schema import HealthCheck
+from src.shared.schemas import HealthCheck
 
 app = FastAPI(title="Expense Claim Agent API", version="0.1.0")
 

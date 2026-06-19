@@ -7,8 +7,8 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
-from src.langfuse_client import get_langfuse_client
-from src.ocr import extract_document
+from src.client.langfuse_client import get_langfuse_client
+from src.workflow.ocr import extract_document
 
 DatasetItem = Mapping[str, Any]
 DatasetRecord = dict[str, Any]

@@ -5,8 +5,8 @@ import os
 from langfuse.openai import AzureOpenAI
 from pydantic import BaseModel
 
-from src.langfuse_client import compile_prompt, get_prompt
-from src.schemas import ExtractedReceipt
+from src.client.langfuse_client import compile_prompt, get_prompt
+from src.shared.schemas import ExtractedReceipt
 
 DEFAULT_EXTRACTION_PROMPT = [
     {

@@ -2,7 +2,7 @@
 
 from typing import Any
 
-from src.schemas import CheckResult
+from src.shared.schemas import CheckResult
 
 POLICIES: dict[str, dict[str, float | bool]] = {
     "Meals": {"max_amount": 100.0, "receipt_required": True},

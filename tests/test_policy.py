@@ -1,6 +1,6 @@
 """Tests for MVP expense policy checks."""
 
-from src.policy import check_policy
+from src.workflow.policy import check_policy
 
 
 def test_meal_within_limit_passes() -> None:

@@ -7,8 +7,8 @@ from pathlib import Path
 import streamlit as st
 from sqlalchemy import func, select
 
-from src.agents import run_review
-from src.database import (
+from src.database.entities import Claim, Employee
+from src.database.operations import (
     SessionLocal,
     create_claim,
     get_claim,
@@ -17,9 +17,9 @@ from src.database import (
     run_migrations,
     update_claim_review,
 )
-from src.models import Claim, Employee
-from src.schemas import ClaimCreate
-from src.utils import next_claim_id, save_uploaded_receipt
+from src.shared.schemas import ClaimCreate
+from src.shared.utils import next_claim_id, save_uploaded_receipt
+from src.workflow.agents import run_review
 
 EXPENSE_CATEGORIES = ["Meals", "Transport", "Office Supplies", "Medical"]
 DEPARTMENTS = ["Sales & Marketing", "IT", "HR", "Finance", "Operations"]

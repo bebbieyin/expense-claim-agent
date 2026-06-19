@@ -1,4 +1,4 @@
-"""Database persistence helpers for expense claims."""
+"""Database operations."""
 
 import json
 import os
@@ -11,8 +11,8 @@ from alembic.config import Config
 from sqlalchemy import Engine, create_engine, select
 from sqlalchemy.orm import Session, sessionmaker
 
-from src.models import Claim, Employee
-from src.schemas import ClaimCreate, ClaimReviewState
+from src.database.entities import Claim, Employee
+from src.shared.schemas import ClaimCreate, ClaimReviewState
 
 AMOUNT_TOLERANCE = 0.01
 
@@ -43,7 +43,7 @@ SessionLocal = sessionmaker(bind=engine, expire_on_commit=False)
 
 def run_migrations(database_url: str | None = None) -> None:
     """Apply all pending Alembic migrations."""
-    config = Config(Path(__file__).parent.parent / "alembic.ini")
+    config = Config(Path(__file__).parents[2] / "alembic.ini")
     config.set_main_option("sqlalchemy.url", database_url or get_database_url())
     command.upgrade(config, "head")
 

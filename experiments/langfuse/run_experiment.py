@@ -16,8 +16,12 @@ from experiments.langfuse.sroie.upload import (
     DEFAULT_SEED,
     default_dataset_name,
 )
-from src.extraction import extract_receipt_fields
-from src.langfuse_client import compile_prompt, get_langfuse_client, get_prompt
+from src.client.langfuse_client import (
+    compile_prompt,
+    get_langfuse_client,
+    get_prompt,
+)
+from src.workflow.extraction import extract_receipt_fields
 
 
 @dataclass(frozen=True)

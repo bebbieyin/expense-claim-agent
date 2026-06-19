@@ -6,6 +6,12 @@ from typing import Any, Literal, TypedDict
 from pydantic import BaseModel, Field
 
 
+class HealthCheck(BaseModel):
+    """Health-check response."""
+
+    status: str
+
+
 class ClaimCreate(BaseModel):
     """User-submitted expense claim."""
 

@@ -5,7 +5,7 @@ from unittest.mock import MagicMock
 import pytest
 from sqlalchemy.orm import Session
 
-from src.agents import run_review
+from src.workflow.agents import run_review
 
 EXPECTED_AGENT_COUNT = 6
 

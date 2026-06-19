@@ -3,7 +3,7 @@
 from datetime import date
 from typing import Any
 
-from src.schemas import CheckResult, ExtractedReceipt
+from src.shared.schemas import CheckResult, ExtractedReceipt
 
 AMOUNT_TOLERANCE = 0.01
 
