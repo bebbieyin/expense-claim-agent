@@ -18,6 +18,8 @@ DEFAULT_EXTRACTION_PROMPT = [
     },
     {"role": "user", "content": "{OCR_TEXT}"},
 ]
+LANGFUSE_PROMPT_NAME = "receipt-key-info-extraction"
+LANGFUSE_PROMPT_LABEL = "staging"
 
 
 def _azure_openai_extract(
@@ -67,12 +69,13 @@ def extract_structured_document(
 def extract_receipt_fields(
     raw_ocr_text: str,
     *,
-    prompt_name: str = "receipt-extraction",
-    prompt_label: str = "production",
+    prompt_name: str = LANGFUSE_PROMPT_NAME,
+    prompt_label: str = LANGFUSE_PROMPT_LABEL,
     prompt_version: int | None = None,
     messages: list[dict[str, str]] | None = None,
 ) -> ExtractedReceipt:
     """Extract receipt fields from OCR text or return the mock fixture."""
+    # return mock values if LLM provider is not configured
     if os.getenv("LLM_PROVIDER", "mock") == "mock":
         return ExtractedReceipt(
             merchant_name="Restoran ABC",
