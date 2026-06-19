@@ -1,3 +1,10 @@
+# [1.2.0](https://github.com/bebbieyin/expense-claim-agent/compare/v1.1.0+master...v1.2.0+master) (2026-06-19)
+
+
+### Features
+
+* CU-86exzq82k - add extraction flow ([735616e](https://github.com/bebbieyin/expense-claim-agent/commit/735616e44843a4baf0e6dfd7a919722d364e5831))
+
 # [1.1.0](https://github.com/bebbieyin/expense-claim-agent/compare/v1.0.0+master...v1.1.0+master) (2026-06-19)
 
 
