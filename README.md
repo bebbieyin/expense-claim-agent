@@ -35,8 +35,9 @@ The workflow consists of six agents:
 6. **Explanation Agent** — Generates a concise summary of the review result.
 
 Validation, policy compliance, duplicate checking, decision-making, and
-explanation are deterministic workflow steps. Claims marked `needs_review`
-are placed in the Reviewer Team approval queue, where a reviewer records the
+explanation are deterministic workflow steps. ach agent is separated into individual modules to improve maintainability enable independent future enhancements.
+
+Claims marked `needs_review` are placed in the Reviewer Team approval queue, where a reviewer records the
 final approval or rejection and optional review notes.
 
 ## Setup
