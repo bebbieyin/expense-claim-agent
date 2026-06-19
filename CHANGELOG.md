@@ -1,3 +1,10 @@
+# [1.1.0](https://github.com/bebbieyin/expense-claim-agent/compare/v1.0.0+master...v1.1.0+master) (2026-06-19)
+
+
+### Features
+
+* CU-86exzq82k - setup langfuse ([ee846fb](https://github.com/bebbieyin/expense-claim-agent/commit/ee846fba12a0c550d9e7df06243f02cb3f70be6a))
+
 # 1.0.0 (2026-06-18)
 
 
