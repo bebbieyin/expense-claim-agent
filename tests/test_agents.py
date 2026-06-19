@@ -6,6 +6,7 @@ from unittest.mock import MagicMock
 import pytest
 from sqlalchemy.orm import Session
 
+from src.shared.schemas import ExtractedReceipt
 from src.workflow.agents import CLAIM_REVIEW_GRAPH, ClaimReviewError, run_review
 
 EXPECTED_AGENT_COUNT = 6
@@ -141,6 +142,41 @@ def test_validation_failure_needs_review() -> None:
 
     assert state["decision"] == "needs_review"
     assert state["decision_reason"] == "Claimed amount does not match receipt total."
+
+
+def test_missing_extracted_total_needs_review(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Missing optional receipt fields do not crash trail generation."""
+    monkeypatch.setattr(
+        "src.workflow.agents.extract_receipt_fields",
+        lambda _raw_text: ExtractedReceipt(
+            merchant_name="Restoran ABC",
+            receipt_date="2026-06-16",
+            total_amount=None,
+            currency=None,
+            confidence=0.80,
+        ),
+    )
+    session = MagicMock(spec=Session)
+    session.scalars.return_value = []
+    claim = {
+        "claim_id": "CLM-0006",
+        "employee_id": "EMP-1023",
+        "employee_name": "Alicia Tan",
+        "department": "Sales",
+        "claim_date": "2026-06-18",
+        "expense_category": "Meals",
+        "expense_purpose": "Client lunch",
+        "claimed_amount": 45.90,
+        "currency": "MYR",
+        "receipt_file_path": "receipt.png",
+    }
+
+    state = run_review(claim, "receipt.png", session, current_claim_id=6)
+
+    assert state["decision"] == "needs_review"
+    assert "unknown currency unknown amount" in state["agent_trail"][0]["message"]
 
 
 def test_langfuse_traces_claim_ocr_and_extraction(

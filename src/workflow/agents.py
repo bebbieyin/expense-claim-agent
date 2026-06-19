@@ -78,9 +78,14 @@ def receipt_extraction_agent(state: ClaimReviewState) -> dict[str, Any]:
             extraction_generation.update(output=receipt.model_dump(mode="json"))
 
     extracted_receipt = receipt.model_dump(mode="json")
+    total_amount = (
+        f"{receipt.total_amount:.2f}"
+        if receipt.total_amount is not None
+        else "unknown amount"
+    )
     message = (
         f"Extracted {receipt.merchant_name}, {receipt.receipt_date}, "
-        f"{receipt.currency} {receipt.total_amount:.2f} "
+        f"{receipt.currency or 'unknown currency'} {total_amount} "
         f"with {receipt.confidence:.0%} confidence."
     )
     return {
