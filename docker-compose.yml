@@ -18,35 +18,10 @@ services:
       retries: 10
     restart: unless-stopped
 
-  api:
+  ui:
     build:
       context: .
     image: expense-claim-agent:local
-    env_file:
-      - .env
-    environment:
-      DATABASE_URL: ""
-      POSTGRES_HOST: db
-    ports:
-      - "${PORT:-8000}:8000"
-    depends_on:
-      db:
-        condition: service_healthy
-    restart: unless-stopped
-
-  ui:
-    image: expense-claim-agent:local
-    command:
-      [
-        "uv",
-        "run",
-        "--no-sync",
-        "streamlit",
-        "run",
-        "app.py",
-        "--server.address=0.0.0.0",
-        "--server.port=8501",
-      ]
     env_file:
       - .env
     environment:
