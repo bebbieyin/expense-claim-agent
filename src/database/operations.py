@@ -4,7 +4,7 @@ import json
 import os
 from datetime import UTC, datetime
 from pathlib import Path
-from typing import Any
+from typing import Any, Literal
 from urllib.parse import quote_plus
 
 from alembic import command
@@ -68,12 +68,38 @@ def update_claim_review(
     state: ClaimReviewState,
 ) -> None:
     """Store the completed review state on a claim."""
-    claim.status = "reviewed"
+    claim.status = (
+        "pending_review" if state["decision"] == "needs_review" else "reviewed"
+    )
     claim.decision = state["decision"]
     claim.review_summary = state["review_summary"]
     claim.raw_agent_state = json.dumps(state, default=str)
     claim.extracted_receipt = state["extracted_receipt"]
     claim.langfuse_trace_id = state["langfuse_trace_id"]
+    session.commit()
+
+
+def resolve_claim_review(
+    session: Session,
+    claim: Claim,
+    decision: Literal["approved", "rejected"],
+    notes: str,
+    reviewed_by: str,
+) -> None:
+    """Resolve a claim escalated for human review."""
+    if claim.status != "pending_review":
+        msg = "Only claims pending human review can be resolved."
+        raise ValueError(msg)
+
+    claim.status = "reviewed"
+    claim.decision = decision
+    claim.human_review_decision = decision
+    claim.human_review_notes = notes
+    claim.human_reviewed_by = reviewed_by
+    claim.human_reviewed_at = datetime.now(tz=UTC)
+    claim.review_summary = (
+        f"Human review: {decision}. {notes}" if notes else f"Human review: {decision}."
+    )
     session.commit()
 
 
@@ -97,6 +123,16 @@ def list_claims(session: Session, employee_id: str | None = None) -> list[Claim]
     statement = select(Claim).order_by(Claim.created_at.desc(), Claim.id.desc())
     if employee_id:
         statement = statement.where(Claim.employee_id == employee_id)
+    return list(session.scalars(statement))
+
+
+def list_claims_needing_review(session: Session) -> list[Claim]:
+    """Return claims waiting for an approver decision."""
+    statement = (
+        select(Claim)
+        .where(Claim.status == "pending_review")
+        .order_by(Claim.created_at.asc(), Claim.id.asc())
+    )
     return list(session.scalars(statement))
 
 

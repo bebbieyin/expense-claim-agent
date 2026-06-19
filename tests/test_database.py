@@ -2,6 +2,7 @@
 
 from unittest.mock import MagicMock, patch
 
+import pytest
 from alembic.config import Config
 from sqlalchemy import Engine
 from sqlalchemy.orm import Session
@@ -11,6 +12,8 @@ from src.database.operations import (
     get_claim,
     get_database_url,
     list_claims,
+    list_claims_needing_review,
+    resolve_claim_review,
     run_migrations,
     update_claim_review,
     update_receipt_correction,
@@ -80,6 +83,53 @@ def test_employee_claim_access_is_scoped() -> None:
     assert "claims.employee_id" in str(get_statement)
 
 
+def test_review_queue_only_contains_pending_claims() -> None:
+    """Human review queue filters to pending claims."""
+    session = MagicMock(spec=Session)
+    session.scalars.return_value = []
+
+    list_claims_needing_review(session)
+
+    statement = session.scalars.call_args.args[0]
+    assert "claims.status" in str(statement)
+    assert "pending_review" in str(statement.compile().params.values())
+
+
+def test_human_review_resolves_pending_claim() -> None:
+    """An approver decision resolves and audits an escalated claim."""
+    session = MagicMock(spec=Session)
+    claim = MagicMock()
+    claim.status = "pending_review"
+
+    resolve_claim_review(
+        session,
+        claim,
+        "approved",
+        "Receipt verified.",
+        "Reviewer Team",
+    )
+
+    assert claim.status == "reviewed"
+    assert claim.decision == "approved"
+    assert claim.human_review_decision == "approved"
+    assert claim.human_review_notes == "Receipt verified."
+    assert claim.human_reviewed_by == "Reviewer Team"
+    assert claim.human_reviewed_at is not None
+    session.commit.assert_called_once()
+
+
+def test_human_review_rejects_non_pending_claim() -> None:
+    """Claims outside the review queue cannot be resolved again."""
+    session = MagicMock(spec=Session)
+    claim = MagicMock()
+    claim.status = "reviewed"
+
+    with pytest.raises(ValueError, match="pending human review"):
+        resolve_claim_review(session, claim, "rejected", "", "Reviewer Team")
+
+    session.commit.assert_not_called()
+
+
 def test_receipt_correction_preserves_extracted_receipt() -> None:
     """Human corrections are stored separately from AI extraction."""
     session = MagicMock(spec=Session)
@@ -131,4 +181,22 @@ def test_claim_review_stores_extracted_receipt_for_evaluation() -> None:
     update_claim_review(session, claim, state)  # type: ignore[arg-type]
 
     assert claim.extracted_receipt == extracted
+    assert claim.status == "reviewed"
     session.commit.assert_called_once()
+
+
+def test_needs_review_is_escalated_to_pending_status() -> None:
+    """Automated needs-review decisions enter the human review queue."""
+    session = MagicMock(spec=Session)
+    claim = MagicMock()
+    state = {
+        "decision": "needs_review",
+        "review_summary": "Manual review required.",
+        "extracted_receipt": {},
+        "langfuse_trace_id": None,
+    }
+
+    update_claim_review(session, claim, state)  # type: ignore[arg-type]
+
+    assert claim.status == "pending_review"
+    assert claim.decision == "needs_review"

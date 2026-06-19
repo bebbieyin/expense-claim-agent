@@ -142,6 +142,7 @@ def test_validation_failure_needs_review() -> None:
 
     assert state["decision"] == "needs_review"
     assert state["decision_reason"] == "Claimed amount does not match receipt total."
+    assert state["review_summary"].startswith("The claim needs review.")
 
 
 def test_missing_extracted_total_needs_review(

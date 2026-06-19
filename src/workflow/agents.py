@@ -196,8 +196,13 @@ def explanation_agent(state: ClaimReviewState) -> dict[str, Any]:
     """Generate a concise deterministic review summary."""
     claim = state["claim"]
     decision = str(state["decision"]).replace("_", " ")
+    decision_summary = (
+        "The claim needs review"
+        if state["decision"] == "needs_review"
+        else f"The claim is {decision}"
+    )
     review_summary = (
-        f"The claim is {decision}. {state['decision_reason']} "
+        f"{decision_summary}. {state['decision_reason']} "
         f"Claimed amount: {claim['currency']} {float(claim['claimed_amount']):.2f}."
     )
     return {

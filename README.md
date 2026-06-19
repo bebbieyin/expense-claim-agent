@@ -1,5 +1,32 @@
 # Expense Claim Agent
 
+## Review workflow
+
+The application uses a LangGraph workflow to process each expense claim:
+
+```mermaid
+flowchart TD
+    START([Start]) --> extraction[Receipt Extraction]
+    extraction -->|Receipt extracted| validation[Claim Validation]
+    extraction -->|No receipt extracted| decision[Decision]
+    validation --> policy[Policy Compliance]
+    policy --> duplicate[Duplicate Check]
+    duplicate --> decision
+    decision --> explanation[Explanation]
+    explanation -->|Approved| approved([Approved])
+    explanation -->|Rejected| rejected([Rejected])
+    explanation -->|Needs review| pending[Pending Human Review]
+    pending --> reviewer[Reviewer Team]
+    reviewer -->|Approve| approved
+    reviewer -->|Reject| rejected
+```
+
+Receipt extraction uses third-party model providers. Validation,
+policy compliance, duplicate checking, decision-making, and explanation are
+deterministic workflow steps. Claims marked `needs_review` are placed in the
+Reviewer Team approval queue, where a reviewer records the final approval or
+rejection and optional review notes.
+
 ## Setup
 
 Install Python 3.12, [`uv`](https://docs.astral.sh/uv/),

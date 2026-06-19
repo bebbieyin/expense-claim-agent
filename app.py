@@ -14,7 +14,9 @@ from src.database.operations import (
     create_claim,
     get_claim,
     list_claims,
+    list_claims_needing_review,
     list_employees,
+    resolve_claim_review,
     run_migrations,
     update_claim_review,
     update_receipt_correction,
@@ -139,7 +141,13 @@ def render_submit_tab(employee: Employee) -> None:
                 st.error(f"Claim {claim.claim_id} was stored, but review failed.")
                 return
 
-    st.success(f"{claim.claim_id}: {state['decision']}")
+    if state["decision"] == "needs_review":
+        st.warning(
+            f"{claim.claim_id} needs review and has been escalated to the "
+            "reviewer team.",
+        )
+    else:
+        st.success(f"{claim.claim_id}: {state['decision']}")
     st.write(state["review_summary"])
 
 
@@ -166,6 +174,66 @@ def render_dashboard_tab(employee_id: str | None = None) -> None:
         for claim in claims
     ]
     st.dataframe(rows, use_container_width=True, hide_index=True)
+
+
+def render_approval_queue_tab() -> None:
+    """Render claims escalated for an approver decision."""
+    st.header("Claims Requiring Approval")
+    with SessionLocal() as session:
+        claims = list_claims_needing_review(session)
+    if not claims:
+        st.info("No claims are waiting for human review.")
+        return
+
+    claim_ids = [claim.claim_id for claim in claims]
+    selected_id = st.selectbox(
+        "Claim ID",
+        claim_ids,
+        key="approval-queue-claim",
+    )
+    with SessionLocal() as session:
+        claim = get_claim(session, selected_id)
+    if claim is None:
+        st.error("Claim could not be found.")
+        return
+
+    _render_original_claim(claim)
+    state = json.loads(claim.raw_agent_state or "{}")
+    _render_checks("Validation Results", state.get("validation_results", []))
+    _render_checks("Policy Results", state.get("policy_results", []))
+    _render_checks("Duplicate Check", state.get("duplicate_results", []))
+    st.subheader("Escalation Reason")
+    st.write(claim.review_summary or "No review summary recorded.")
+
+    with st.form(f"human-review-{claim.claim_id}"):
+        decision = st.radio(
+            "Decision",
+            ["approved", "rejected"],
+            horizontal=True,
+        )
+        notes = st.text_area("Review notes")
+        submitted = st.form_submit_button("Submit Decision", type="primary")
+
+    if not submitted:
+        return
+    with SessionLocal() as session:
+        review_claim = get_claim(session, claim.claim_id)
+        if review_claim is None:
+            st.error("Claim could not be found.")
+            return
+        try:
+            resolve_claim_review(
+                session,
+                review_claim,
+                decision,
+                notes.strip(),
+                "Reviewer Team",
+            )
+        except ValueError as exc:
+            st.error(str(exc))
+            return
+    st.success(f"{claim.claim_id} was {decision}.")
+    st.rerun()
 
 
 def render_review_rules_tab() -> None:
@@ -420,6 +488,17 @@ def render_claim_checks_tab(employee_id: str | None = None) -> None:
     st.subheader("Final Decision")
     st.write(f"**{claim.decision or claim.status}**")
     st.write(claim.review_summary or "No summary recorded.")
+    if claim.human_review_decision:
+        st.caption(
+            f"Human decision by {claim.human_reviewed_by or 'Reviewer Team'}"
+            + (
+                f" on {claim.human_reviewed_at}"
+                if claim.human_reviewed_at is not None
+                else ""
+            ),
+        )
+        if claim.human_review_notes:
+            st.write(claim.human_review_notes)
 
     st.subheader("Agent Review Trail")
     for step in state.get("agent_trail", []):
@@ -452,7 +531,7 @@ st.markdown(
 )
 initialize_database()
 st.title("Expense Claim Agent")
-view = st.sidebar.selectbox("View as", ["Employee", "Finance Team"])
+view = st.sidebar.selectbox("View as", ["Employee", "Reviewer Team"])
 
 if view == "Employee":
     with SessionLocal() as session:
@@ -463,34 +542,23 @@ if view == "Employee":
         format_func=lambda item: item.employee_name,
     )
     st.sidebar.caption(f"Employee ID: {employee.employee_id}")
-    submit_tab, dashboard_tab, extraction_tab, checks_tab, policy_tab = st.tabs(
-        [
-            "Submit Claim",
-            "My Claims",
-            "Review Extraction",
-            "Claim Checks",
-            "Review Rules",
-        ],
-    )
+    submit_tab, dashboard_tab = st.tabs(["Submit Claim", "My Claims"])
     with submit_tab:
         render_submit_tab(employee)
     with dashboard_tab:
         render_dashboard_tab(employee.employee_id)
-    with extraction_tab:
-        render_extraction_review_tab(employee.employee_id)
-    with checks_tab:
-        render_claim_checks_tab(employee.employee_id)
-    with policy_tab:
-        render_review_rules_tab()
 else:
-    dashboard_tab, extraction_tab, checks_tab, policy_tab = st.tabs(
+    queue_tab, dashboard_tab, extraction_tab, checks_tab, policy_tab = st.tabs(
         [
+            "Approval Queue",
             "Claims Dashboard",
             "Review Extraction",
             "Claim Checks",
             "Review Rules",
         ],
     )
+    with queue_tab:
+        render_approval_queue_tab()
     with dashboard_tab:
         render_dashboard_tab()
     with extraction_tab:

@@ -59,6 +59,19 @@ class Claim(Base):
         DateTime(timezone=True),
         nullable=True,
     )
+    human_review_decision: Mapped[str | None] = mapped_column(
+        String(32),
+        nullable=True,
+    )
+    human_review_notes: Mapped[str | None] = mapped_column(Text, nullable=True)
+    human_reviewed_by: Mapped[str | None] = mapped_column(
+        String(120),
+        nullable=True,
+    )
+    human_reviewed_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True),
+        nullable=True,
+    )
     langfuse_trace_id: Mapped[str | None] = mapped_column(String(120), nullable=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
