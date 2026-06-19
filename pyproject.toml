@@ -7,7 +7,6 @@ requires-python = ">=3.12,<3.15"
 authors = [{ name = "Boon Yin Yin" }]
 dependencies = [
     "alembic",
-    "fastapi",
     "httpx",
     "langfuse>=3.14.5",
     "langgraph",
@@ -17,7 +16,6 @@ dependencies = [
     "python-dotenv",
     "sqlalchemy",
     "streamlit",
-    "uvicorn",
 ]
 
 [dependency-groups]
