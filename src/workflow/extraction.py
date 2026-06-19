@@ -5,19 +5,10 @@ import os
 from langfuse.openai import AzureOpenAI
 from pydantic import BaseModel
 
+from prompts.receipt_extraction import DEFAULT_EXTRACTION_PROMPT
 from src.client.langfuse_client import compile_prompt, get_prompt
 from src.shared.schemas import ExtractedReceipt
 
-DEFAULT_EXTRACTION_PROMPT = [
-    {
-        "role": "system",
-        "content": (
-            "Extract receipt fields only from the supplied OCR text. "
-            "Return null for values that are not present. Do not guess."
-        ),
-    },
-    {"role": "user", "content": "{OCR_TEXT}"},
-]
 LANGFUSE_PROMPT_NAME = "receipt-key-info-extraction"
 LANGFUSE_PROMPT_LABEL = "staging"
 
@@ -83,7 +74,6 @@ def extract_receipt_fields(
             total_amount=45.90,
             currency="MYR",
             confidence=0.91,
-            source_text=raw_ocr_text,
         )
 
     if messages is None and os.getenv("LANGFUSE_ENABLED", "false").lower() == "true":

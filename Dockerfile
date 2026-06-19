@@ -15,6 +15,7 @@ RUN uv sync --frozen --no-dev --no-install-project
 
 COPY alembic.ini app.py ./
 COPY migrations ./migrations
+COPY prompts ./prompts
 COPY src ./src
 
 RUN mkdir -p /app/uploads \

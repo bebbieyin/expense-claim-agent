@@ -16,6 +16,15 @@ just migrate
 Update `.env` with the required database and provider configuration before
 starting the application.
 
+## Prompt configuration
+
+Langfuse prompt management is optional. Set `LANGFUSE_ENABLED=true` to use the
+`receipt-key-info-extraction` prompt managed in Langfuse.
+
+If you do not want to set up Langfuse, leave `LANGFUSE_ENABLED=false`. Receipt
+extraction will use the local fallback prompt in
+`prompts/receipt_extraction.py`.
+
 ## Run locally
 
 Start the API:

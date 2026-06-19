@@ -5,12 +5,19 @@ from unittest.mock import MagicMock
 
 import pytest
 
+from prompts.receipt_extraction import EXTRACTION_SYSTEM_PROMPT
 from src.shared.schemas import ExtractedReceipt
 from src.workflow.extraction import (
     _azure_openai_extract,
     extract_receipt_fields,
     extract_structured_document,
 )
+
+
+def test_extraction_prompt_excludes_source_text() -> None:
+    """The extraction prompt requests only fields stored in the schema."""
+    assert "Confirm all six fields are present." in EXTRACTION_SYSTEM_PROMPT
+    assert "source_text" not in EXTRACTION_SYSTEM_PROMPT
 
 
 def test_azure_openai_returns_validated_structured_output(
@@ -23,7 +30,6 @@ def test_azure_openai_returns_validated_structured_output(
         "total_amount": 12.50,
         "currency": "MYR",
         "confidence": 0.95,
-        "source_text": "Example Store\nTotal MYR 12.50",
     }
     parse = MagicMock(
         return_value=SimpleNamespace(
@@ -77,7 +83,6 @@ def test_receipt_extraction_uses_langfuse_prompt(
         total_amount=12.50,
         currency="MYR",
         confidence=0.95,
-        source_text="receipt text",
     )
     prompt = object()
     get_prompt = MagicMock(return_value=prompt)

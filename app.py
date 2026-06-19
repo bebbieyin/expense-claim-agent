@@ -187,8 +187,6 @@ def render_detail_tab(employee_id: str | None = None) -> None:
 
     st.subheader("Extracted Receipt")
     st.json(state.get("extracted_receipt") or {})
-    st.subheader("Raw OCR Text")
-    st.code(state.get("raw_ocr_text") or "No OCR text recorded.", language=None)
     _render_checks("Validation Results", state.get("validation_results", []))
     _render_checks("Policy Results", state.get("policy_results", []))
     _render_checks("Duplicate Check", state.get("duplicate_results", []))
@@ -210,6 +208,9 @@ def render_detail_tab(employee_id: str | None = None) -> None:
         st.code(claim.langfuse_trace_id, language=None)
     else:
         st.write("No Langfuse trace was recorded.")
+
+    with st.expander("Raw OCR Text"):
+        st.code(state.get("raw_ocr_text") or "No OCR text recorded.", language=None)
 
 
 st.set_page_config(page_title="Expense Claim Agent", page_icon="🧾", layout="wide")

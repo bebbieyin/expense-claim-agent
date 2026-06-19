@@ -17,7 +17,6 @@ def test_matching_claim_passes_core_validation() -> None:
         total_amount=45.90,
         currency="MYR",
         confidence=0.91,
-        source_text="Total: MYR 45.90",
     )
 
     results = validate_claim(claim, receipt)
@@ -38,7 +37,6 @@ def test_amount_mismatch_fails_validation() -> None:
         total_amount=45.90,
         currency="MYR",
         confidence=0.91,
-        source_text="Total: MYR 45.90",
     )
 
     results = validate_claim(claim, receipt)
