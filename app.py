@@ -27,6 +27,12 @@ EXPENSE_CATEGORIES = ["Meals", "Transport", "Office Supplies", "Medical"]
 DEPARTMENTS = ["Sales & Marketing", "IT", "HR", "Finance", "Operations"]
 
 
+@st.cache_resource(show_spinner=False)
+def initialize_database() -> None:
+    """Apply database migrations once per Streamlit process."""
+    run_migrations()
+
+
 def _render_checks(title: str, checks: list[dict[str, str]]) -> None:
     st.subheader(title)
     if not checks:
@@ -56,6 +62,14 @@ def render_submit_tab(employee: Employee) -> None:
     )
     st.text_input("Employee ID", value=employee.employee_id, disabled=True)
 
+    receipt = st.file_uploader(
+        "Receipt image",
+        type=["png", "jpg", "jpeg", "webp"],
+        accept_multiple_files=False,
+    )
+    if receipt is not None:
+        st.image(receipt, caption=receipt.name, width=500)
+
     with st.form("claim-form", clear_on_submit=False):
         left, right = st.columns(2)
         department = left.selectbox("Department", DEPARTMENTS)
@@ -68,11 +82,7 @@ def render_submit_tab(employee: Employee) -> None:
             step=0.01,
         )
         purpose = st.text_area("Expense purpose")
-        receipt = st.file_uploader(
-            "Receipt image",
-            type=["png", "jpg", "jpeg", "webp"],
-        )
-        submitted = st.form_submit_button("Submit & Review", type="primary")
+        submitted = st.form_submit_button("Submit", type="primary")
 
     if not submitted:
         return
@@ -84,37 +94,38 @@ def render_submit_tab(employee: Employee) -> None:
         st.error("Upload a receipt image before submitting.")
         return
 
-    receipt_path = save_uploaded_receipt(receipt, receipt.name)
-    with SessionLocal() as session:
-        last_id = session.scalar(select(func.max(Claim.id)))
-        claim_data = ClaimCreate(
-            claim_id=next_claim_id(last_id),
-            employee_id=employee.employee_id,
-            employee_name=employee.employee_name,
-            department=department.strip(),
-            claim_date=claim_date,
-            expense_category=category,
-            expense_purpose=purpose.strip(),
-            claimed_amount=claimed_amount,
-            currency="MYR",
-            receipt_file_path=receipt_path,
-        )
-        claim = create_claim(session, claim_data)
-        try:
-            state = run_review(
-                claim_data.model_dump(mode="json"),
-                receipt_path,
-                session,
-                claim.id,
+    with st.spinner("Submitting and reviewing your claim...", show_time=True):
+        receipt_path = save_uploaded_receipt(receipt, receipt.name)
+        with SessionLocal() as session:
+            last_id = session.scalar(select(func.max(Claim.id)))
+            claim_data = ClaimCreate(
+                claim_id=next_claim_id(last_id),
+                employee_id=employee.employee_id,
+                employee_name=employee.employee_name,
+                department=department.strip(),
+                claim_date=claim_date,
+                expense_category=category,
+                expense_purpose=purpose.strip(),
+                claimed_amount=claimed_amount,
+                currency="MYR",
+                receipt_file_path=receipt_path,
             )
-            update_claim_review(session, claim, state)
-        except Exception as exc:  # noqa: BLE001
-            claim.status = "failed"
-            claim.review_summary = f"Review failed: {exc}"
-            claim.langfuse_trace_id = getattr(exc, "langfuse_trace_id", None)
-            session.commit()
-            st.error(f"Claim {claim.claim_id} was stored, but review failed.")
-            return
+            claim = create_claim(session, claim_data)
+            try:
+                state = run_review(
+                    claim_data.model_dump(mode="json"),
+                    receipt_path,
+                    session,
+                    claim.id,
+                )
+                update_claim_review(session, claim, state)
+            except Exception as exc:  # noqa: BLE001
+                claim.status = "failed"
+                claim.review_summary = f"Review failed: {exc}"
+                claim.langfuse_trace_id = getattr(exc, "langfuse_trace_id", None)
+                session.commit()
+                st.error(f"Claim {claim.claim_id} was stored, but review failed.")
+                return
 
     st.success(f"{claim.claim_id}: {state['decision']}")
     st.write(state["review_summary"])
@@ -214,7 +225,17 @@ def render_detail_tab(employee_id: str | None = None) -> None:
 
 
 st.set_page_config(page_title="Expense Claim Agent", page_icon="🧾", layout="wide")
-run_migrations()
+st.markdown(
+    """
+    <style>
+    [data-testid="stFileUploader"] button[aria-label="Add files"] {
+        display: none;
+    }
+    </style>
+    """,
+    unsafe_allow_html=True,
+)
+initialize_database()
 st.title("Expense Claim Agent")
 view = st.sidebar.selectbox("View as", ["Employee", "Finance Team"])
 
