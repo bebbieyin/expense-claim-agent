@@ -2,7 +2,7 @@
 
 from datetime import date, datetime
 
-from sqlalchemy import Date, DateTime, Float, String, Text, func
+from sqlalchemy import JSON, Date, DateTime, Float, String, Text, func
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 
 
@@ -40,6 +40,25 @@ class Claim(Base):
     decision: Mapped[str | None] = mapped_column(String(32), nullable=True)
     review_summary: Mapped[str | None] = mapped_column(Text, nullable=True)
     raw_agent_state: Mapped[str | None] = mapped_column(Text, nullable=True)
+    extracted_receipt: Mapped[dict[str, object] | None] = mapped_column(
+        JSON,
+        nullable=True,
+    )
+    corrected_receipt: Mapped[dict[str, object] | None] = mapped_column(
+        JSON,
+        nullable=True,
+    )
+    corrected_validation_results: Mapped[list[dict[str, object]] | None] = (
+        mapped_column(
+            JSON,
+            nullable=True,
+        )
+    )
+    corrected_by: Mapped[str | None] = mapped_column(String(120), nullable=True)
+    corrected_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True),
+        nullable=True,
+    )
     langfuse_trace_id: Mapped[str | None] = mapped_column(String(120), nullable=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),

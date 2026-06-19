@@ -1,7 +1,7 @@
 """Streamlit interface for the expense claim review app."""
 
 import json
-from datetime import UTC, datetime
+from datetime import UTC, date, datetime
 from pathlib import Path
 
 import streamlit as st
@@ -17,11 +17,13 @@ from src.database.operations import (
     list_employees,
     run_migrations,
     update_claim_review,
+    update_receipt_correction,
 )
-from src.shared.schemas import ClaimCreate
+from src.shared.schemas import ClaimCreate, ExtractedReceipt
 from src.shared.utils import next_claim_id, save_uploaded_receipt
 from src.workflow.agents import run_review
 from src.workflow.policy import POLICIES
+from src.workflow.validation import validate_claim
 
 EXPENSE_CATEGORIES = ["Meals", "Transport", "Office Supplies", "Medical"]
 DEPARTMENTS = ["Sales & Marketing", "IT", "HR", "Finance", "Operations"]
@@ -45,6 +47,26 @@ def _render_checks(title: str, checks: list[dict[str, str]]) -> None:
         )
         label = check["check"].replace("_", " ").title()
         st.write(f"{icon} **{label}** — {check['message']}")
+
+
+def _optional_receipt_date(value: str) -> str | None:
+    """Validate and normalize an optional corrected receipt date."""
+    normalized = value.strip()
+    if not normalized:
+        return None
+    return date.fromisoformat(normalized).isoformat()
+
+
+def _optional_amount(value: str) -> float | None:
+    """Validate an optional corrected receipt amount."""
+    normalized = value.strip()
+    if not normalized:
+        return None
+    amount = float(normalized)
+    if amount < 0:
+        msg = "Receipt total cannot be negative."
+        raise ValueError(msg)
+    return amount
 
 
 def render_submit_tab(employee: Employee) -> None:
@@ -208,24 +230,127 @@ def render_review_rules_tab() -> None:
     st.dataframe(validation_rows, use_container_width=True, hide_index=True)
 
 
-def render_detail_tab(employee_id: str | None = None) -> None:
-    """Render an accessible claim review record."""
-    st.header("Claim Detail")
+def render_receipt_correction(
+    claim: Claim,
+    extracted_receipt: dict[str, object],
+    employee_id: str | None,
+) -> None:
+    """Render and process human verification of extracted receipt fields."""
+    corrected_receipt = claim.corrected_receipt
+    correction_values = corrected_receipt or extracted_receipt
+
+    st.subheader("Verify Receipt Extraction")
+    st.write(
+        "Confirm or correct the extracted fields. The original AI extraction "
+        "will remain unchanged for evaluation.",
+    )
+    with st.form(f"receipt-correction-{claim.claim_id}"):
+        merchant_name = st.text_input(
+            "Merchant name",
+            value=str(correction_values.get("merchant_name") or ""),
+        )
+        merchant_address = st.text_area(
+            "Merchant address",
+            value=str(correction_values.get("merchant_address") or ""),
+        )
+        receipt_date = st.text_input(
+            "Receipt date (YYYY-MM-DD)",
+            value=str(correction_values.get("receipt_date") or ""),
+        )
+        total_amount = st.text_input(
+            "Receipt total",
+            value=(
+                str(correction_values["total_amount"])
+                if correction_values.get("total_amount") is not None
+                else ""
+            ),
+        )
+        currency = st.text_input(
+            "Currency",
+            value=str(correction_values.get("currency") or ""),
+        )
+        correction_submitted = st.form_submit_button(
+            "Save & Re-run Validation",
+            type="primary",
+        )
+
+    if correction_submitted:
+        try:
+            corrected_receipt = {
+                "merchant_name": merchant_name.strip() or None,
+                "merchant_address": merchant_address.strip() or None,
+                "receipt_date": _optional_receipt_date(receipt_date),
+                "total_amount": _optional_amount(total_amount),
+                "currency": currency.strip().upper() or None,
+            }
+        except ValueError:
+            st.error(
+                "Use YYYY-MM-DD for the receipt date and a valid non-negative "
+                "number for the receipt total.",
+            )
+            return
+
+        corrected_by = employee_id or "Finance Team"
+        receipt_for_validation = ExtractedReceipt.model_validate(
+            {
+                **corrected_receipt,
+                "confidence": extracted_receipt.get("confidence", 0),
+            },
+        )
+        claim_for_validation = {
+            "claimed_amount": claim.claimed_amount,
+            "claim_date": claim.claim_date,
+            "currency": claim.currency,
+        }
+        validation_results = [
+            result.model_dump(mode="json")
+            for result in validate_claim(claim_for_validation, receipt_for_validation)
+        ]
+        with SessionLocal() as session:
+            correction_claim = get_claim(session, claim.claim_id, employee_id)
+            if correction_claim is None:
+                st.error("Claim could not be found.")
+                return
+            update_receipt_correction(
+                session,
+                correction_claim,
+                corrected_receipt,
+                validation_results,
+                corrected_by,
+            )
+            claim.corrected_by = correction_claim.corrected_by
+            claim.corrected_at = correction_claim.corrected_at
+            claim.corrected_validation_results = validation_results
+        st.success("Verified receipt saved and validation checks rerun.")
+
+    if corrected_receipt is not None:
+        st.subheader("Verified Receipt")
+        st.json(corrected_receipt)
+        st.caption(
+            f"Verified by {claim.corrected_by or employee_id or 'Finance Team'}"
+            + (f" on {claim.corrected_at}" if claim.corrected_at is not None else ""),
+        )
+
+
+def _select_claim(employee_id: str | None, key: str) -> Claim | None:
+    """Select and load an accessible claim."""
     with SessionLocal() as session:
         claims = list_claims(session, employee_id)
         claim_ids = [claim.claim_id for claim in claims]
     if not claim_ids:
         st.info("Submit a claim to view its details.")
-        return
+        return None
 
-    selected_id = st.selectbox("Claim ID", claim_ids)
+    selected_id = st.selectbox("Claim ID", claim_ids, key=key)
     with SessionLocal() as session:
         claim = get_claim(session, selected_id, employee_id)
     if claim is None:
         st.error("Claim could not be found.")
-        return
+    return claim
 
-    state = json.loads(claim.raw_agent_state or "{}")
+
+def _render_original_claim(claim: Claim) -> None:
+    """Render the submitted claim fields."""
     st.subheader("Original Claim")
     st.json(
         {
@@ -241,6 +366,15 @@ def render_detail_tab(employee_id: str | None = None) -> None:
         },
     )
 
+
+def render_extraction_review_tab(employee_id: str | None = None) -> None:
+    """Render receipt extraction review and correction."""
+    st.header("Review Receipt Extraction")
+    claim = _select_claim(employee_id, "extraction-review-claim")
+    if claim is None:
+        return
+
+    _render_original_claim(claim)
     receipt_path = Path(claim.receipt_file_path)
     st.subheader("Receipt")
     if receipt_path.exists():
@@ -248,9 +382,38 @@ def render_detail_tab(employee_id: str | None = None) -> None:
     else:
         st.warning("The saved receipt file is unavailable.")
 
-    st.subheader("Extracted Receipt")
-    st.json(state.get("extracted_receipt") or {})
-    _render_checks("Validation Results", state.get("validation_results", []))
+    state = json.loads(claim.raw_agent_state or "{}")
+    extracted_receipt = claim.extracted_receipt or state.get("extracted_receipt") or {}
+    st.subheader("AI-Extracted Receipt")
+    st.json(extracted_receipt)
+    render_receipt_correction(claim, extracted_receipt, employee_id)
+
+
+def render_claim_checks_tab(employee_id: str | None = None) -> None:
+    """Render automated and corrected claim checks."""
+    st.header("Claim Checks")
+    claim = _select_claim(employee_id, "claim-checks-claim")
+    if claim is None:
+        return
+
+    state = json.loads(claim.raw_agent_state or "{}")
+    _render_original_claim(claim)
+
+    corrected_validation_results = getattr(
+        claim,
+        "corrected_validation_results",
+        None,
+    )
+    if corrected_validation_results is not None:
+        st.caption("Validation results use the verified receipt fields.")
+        _render_checks(
+            "Verified Validation Results",
+            corrected_validation_results,
+        )
+    else:
+        st.caption("Validation results use the original AI-extracted receipt.")
+        _render_checks("Validation Results", state.get("validation_results", []))
+
     _render_checks("Policy Results", state.get("policy_results", []))
     _render_checks("Duplicate Check", state.get("duplicate_results", []))
 
@@ -300,24 +463,39 @@ if view == "Employee":
         format_func=lambda item: item.employee_name,
     )
     st.sidebar.caption(f"Employee ID: {employee.employee_id}")
-    submit_tab, dashboard_tab, detail_tab, policy_tab = st.tabs(
-        ["Submit Claim", "My Claims", "Claim Detail", "Review Rules"],
+    submit_tab, dashboard_tab, extraction_tab, checks_tab, policy_tab = st.tabs(
+        [
+            "Submit Claim",
+            "My Claims",
+            "Review Extraction",
+            "Claim Checks",
+            "Review Rules",
+        ],
     )
     with submit_tab:
         render_submit_tab(employee)
     with dashboard_tab:
         render_dashboard_tab(employee.employee_id)
-    with detail_tab:
-        render_detail_tab(employee.employee_id)
+    with extraction_tab:
+        render_extraction_review_tab(employee.employee_id)
+    with checks_tab:
+        render_claim_checks_tab(employee.employee_id)
     with policy_tab:
         render_review_rules_tab()
 else:
-    dashboard_tab, detail_tab, policy_tab = st.tabs(
-        ["Claims Dashboard", "Claim Detail", "Review Rules"],
+    dashboard_tab, extraction_tab, checks_tab, policy_tab = st.tabs(
+        [
+            "Claims Dashboard",
+            "Review Extraction",
+            "Claim Checks",
+            "Review Rules",
+        ],
     )
     with dashboard_tab:
         render_dashboard_tab()
-    with detail_tab:
-        render_detail_tab()
+    with extraction_tab:
+        render_extraction_review_tab()
+    with checks_tab:
+        render_claim_checks_tab()
     with policy_tab:
         render_review_rules_tab()
