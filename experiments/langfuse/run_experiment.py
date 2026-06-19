@@ -21,7 +21,7 @@ from src.client.langfuse_client import (
     get_langfuse_client,
     get_prompt,
 )
-from src.workflow.extraction import extract_receipt_fields
+from src.workflow.agents.receipt_extraction.extraction import extract_receipt_fields
 
 
 @dataclass(frozen=True)

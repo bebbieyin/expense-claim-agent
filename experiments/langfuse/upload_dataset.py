@@ -8,7 +8,7 @@ from pathlib import Path
 from typing import Any
 
 from src.client.langfuse_client import get_langfuse_client
-from src.workflow.ocr import extract_document
+from src.workflow.agents.receipt_extraction.ocr import extract_document
 
 DatasetItem = Mapping[str, Any]
 DatasetRecord = dict[str, Any]

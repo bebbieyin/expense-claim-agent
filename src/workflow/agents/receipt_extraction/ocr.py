@@ -1,4 +1,4 @@
-"""Provider-neutral document OCR."""
+"""Provider-neutral receipt OCR."""
 
 import os
 from pathlib import Path
