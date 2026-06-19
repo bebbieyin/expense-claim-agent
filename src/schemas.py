@@ -25,11 +25,39 @@ class ExtractedReceipt(BaseModel):
     """Structured values extracted from a receipt."""
 
     merchant_name: str | None
+    merchant_address: str | None = None
     receipt_date: date | None
     total_amount: float | None
     currency: str | None
     confidence: float = Field(ge=0, le=1)
     source_text: str
+
+
+class OCRLine(BaseModel):
+    """One OCR text line and its source location."""
+
+    text: str
+    page_number: int
+    polygon: list[float] = Field(default_factory=list)
+
+
+class OCRTable(BaseModel):
+    """One table extracted from a document."""
+
+    page_number: int | None = None
+    rows: list[list[str]]
+
+
+class OCRResult(BaseModel):
+    """Provider-neutral OCR output used by production and experiments."""
+
+    full_text: str
+    pages: int
+    lines: list[OCRLine] = Field(default_factory=list)
+    tables: list[OCRTable] = Field(default_factory=list)
+    provider: str
+    model: str
+    raw_response: dict[str, Any] = Field(default_factory=dict)
 
 
 class CheckResult(BaseModel):
