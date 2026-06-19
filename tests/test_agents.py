@@ -6,7 +6,7 @@ from unittest.mock import MagicMock
 import pytest
 from sqlalchemy.orm import Session
 
-from src.workflow.agents import ClaimReviewError, run_review
+from src.workflow.agents import CLAIM_REVIEW_GRAPH, ClaimReviewError, run_review
 
 EXPECTED_AGENT_COUNT = 6
 
@@ -79,6 +79,23 @@ def test_mock_review_approves_matching_claim() -> None:
 
     assert state["decision"] == "approved"
     assert len(state["agent_trail"]) == EXPECTED_AGENT_COUNT
+    session.scalars.assert_called_once()
+
+
+def test_review_graph_contains_expected_nodes() -> None:
+    """The compiled graph exposes the complete review workflow."""
+    graph = CLAIM_REVIEW_GRAPH.get_graph()
+
+    assert set(graph.nodes) == {
+        "__start__",
+        "receipt_extraction",
+        "claim_validation",
+        "policy_compliance",
+        "duplicate_check",
+        "decision",
+        "explanation",
+        "__end__",
+    }
 
 
 def test_policy_violation_is_rejected() -> None:
@@ -101,6 +118,29 @@ def test_policy_violation_is_rejected() -> None:
     state = run_review(claim, "receipt.png", session, current_claim_id=2)
 
     assert state["decision"] == "rejected"
+
+
+def test_validation_failure_needs_review() -> None:
+    """A receipt mismatch is routed to manual review."""
+    session = MagicMock(spec=Session)
+    session.scalars.return_value = []
+    claim = {
+        "claim_id": "CLM-0005",
+        "employee_id": "EMP-1023",
+        "employee_name": "Alicia Tan",
+        "department": "Sales",
+        "claim_date": "2026-06-18",
+        "expense_category": "Meals",
+        "expense_purpose": "Client lunch",
+        "claimed_amount": 50.00,
+        "currency": "MYR",
+        "receipt_file_path": "receipt.png",
+    }
+
+    state = run_review(claim, "receipt.png", session, current_claim_id=5)
+
+    assert state["decision"] == "needs_review"
+    assert state["decision_reason"] == "Claimed amount does not match receipt total."
 
 
 def test_langfuse_traces_claim_ocr_and_extraction(
