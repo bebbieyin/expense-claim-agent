@@ -72,6 +72,11 @@ def upload_sample(*, options: UploadOptions) -> list[dict[str, Any]]:
         options.sample_size,
     )
     client = None if options.dry_run else get_langfuse_client()
+    mode = "Uploading" if client is not None else "Preparing"
+    print(  # noqa: T201
+        f"{mode} {len(items)} items for dataset '{name}'",
+        flush=True,
+    )
     if client is not None and os.getenv("OCR_PROVIDER", "mock") == "mock":
         msg = (
             "Live dataset upload requires a real OCR provider. "
@@ -90,11 +95,20 @@ def upload_sample(*, options: UploadOptions) -> list[dict[str, Any]]:
         )
 
     records = []
-    for item in items:
+    for index, item in enumerate(items, start=1):
+        print(  # noqa: T201
+            f"[{index}/{len(items)}] Processing OCR: {item['id']}",
+            flush=True,
+        )
         record = build_dataset_item(item)
         records.append(record)
         if client is not None:
             client.create_dataset_item(dataset_name=name, **record)
+        status = "Uploaded" if client is not None else "Prepared"
+        print(  # noqa: T201
+            f"[{index}/{len(items)}] {status}: {item['id']}",
+            flush=True,
+        )
         if options.sleep_between:
             time.sleep(options.sleep_between)
     return records
