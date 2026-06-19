@@ -18,6 +18,7 @@ from experiments.langfuse.sroie import (
     paired_sroie_items,
     sample_sroie_items,
 )
+from experiments.langfuse.upload_sroie_dataset import UploadOptions, upload_sample
 
 SAMPLE_SIZE = 5
 EXPECTED_DOLLAR_TOTAL = 6.60
@@ -170,4 +171,39 @@ def test_experiment_progress_prints_completed_count(
     assert capsys.readouterr().out.splitlines() == [
         "[1/2] completed: receipt-01",
         "[2/2] failed: receipt-02",
+    ]
+
+
+def test_dataset_upload_prints_progress(
+    capsys: pytest.CaptureFixture[str],
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Dataset preparation prints OCR and completion progress for each item."""
+    items = [
+        {"id": "receipt-01"},
+        {"id": "receipt-02"},
+    ]
+    monkeypatch.setattr(
+        "experiments.langfuse.upload_sroie_dataset.sample_sroie_items",
+        lambda *_args, **_kwargs: items,
+    )
+    monkeypatch.setattr(
+        "experiments.langfuse.upload_sroie_dataset.build_dataset_item",
+        lambda item: {"metadata": {"document_id": item["id"]}},
+    )
+
+    upload_sample(
+        options=UploadOptions(
+            source=Path("unused"),
+            sample_size=2,
+            dataset_name="test-dataset",
+        )
+    )
+
+    assert capsys.readouterr().out.splitlines() == [
+        "Preparing 2 items for dataset 'test-dataset'",
+        "[1/2] Processing OCR: receipt-01",
+        "[1/2] Prepared: receipt-01",
+        "[2/2] Processing OCR: receipt-02",
+        "[2/2] Prepared: receipt-02",
     ]
