@@ -1,3 +1,10 @@
+## [1.4.1](https://github.com/bebbieyin/expense-claim-agent/compare/v1.4.0+master...v1.4.1+master) (2026-06-19)
+
+
+### Bug Fixes
+
+* CU-86ey0738z - remove redundant fastapi ([60514c5](https://github.com/bebbieyin/expense-claim-agent/commit/60514c5a85ba2d67ea6d3cb09798f9dbc3c93d6b))
+
 # [1.4.0](https://github.com/bebbieyin/expense-claim-agent/compare/v1.3.0+master...v1.4.0+master) (2026-06-19)
 
 
