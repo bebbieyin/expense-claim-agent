@@ -104,7 +104,7 @@ def test_receipt_extraction_uses_langfuse_prompt(
     assert result == expected
     get_prompt.assert_called_once_with(
         "receipt-key-info-extraction",
-        label="staging",
+        label="latest",
         version=None,
     )
     compile_prompt.assert_called_once_with(prompt, OCR_TEXT="receipt text")

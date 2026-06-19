@@ -1,7 +1,6 @@
 """Streamlit interface for the expense claim review app."""
 
 import json
-import os
 from datetime import UTC, datetime
 from pathlib import Path
 
@@ -50,16 +49,6 @@ def _render_checks(title: str, checks: list[dict[str, str]]) -> None:
 def render_submit_tab(employee: Employee) -> None:
     """Render and process the expense submission form."""
     st.header("Submit Expense Claim")
-    langfuse_status = (
-        "enabled"
-        if os.getenv("LANGFUSE_ENABLED", "false").lower() == "true"
-        else "disabled"
-    )
-    st.caption(
-        f"OCR: {os.getenv('OCR_PROVIDER', 'mock')} · "
-        f"Extraction: {os.getenv('LLM_PROVIDER', 'mock')} · "
-        f"Langfuse: {langfuse_status}",
-    )
     st.text_input("Employee ID", value=employee.employee_id, disabled=True)
 
     receipt = st.file_uploader(

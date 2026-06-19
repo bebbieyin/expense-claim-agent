@@ -17,28 +17,17 @@ def check_policy(
     *,
     receipt_provided: bool,
 ) -> list[CheckResult]:
-    """Check a claim against the allowed categories and limits."""
+    """Check a claim against configured limits and receipt requirements."""
     category = str(claim["expense_category"])
     policy = POLICIES.get(category)
     if policy is None:
-        return [
-            CheckResult(
-                check="allowed_category",
-                status="failed",
-                message=f"{category} is not an allowed expense category.",
-            ),
-        ]
+        return []
 
     amount = float(claim["claimed_amount"])
     limit = float(policy["max_amount"])
     within_limit = amount <= limit
     receipt_ok = receipt_provided or not bool(policy["receipt_required"])
     return [
-        CheckResult(
-            check="allowed_category",
-            status="passed",
-            message=f"{category} is an allowed expense category.",
-        ),
         CheckResult(
             check="policy_limit",
             status="passed" if within_limit else "failed",
