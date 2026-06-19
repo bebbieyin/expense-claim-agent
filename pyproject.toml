@@ -8,6 +8,9 @@ authors = [{ name = "Boon Yin Yin" }]
 dependencies = [
     "alembic",
     "fastapi",
+    "httpx",
+    "langfuse>=3.14.5",
+    "openai",
     "psycopg[binary]",
     "pydantic",
     "python-dotenv",
@@ -22,7 +25,6 @@ lint = [
     "ruff~=0.14.14",
 ]
 test = [
-    "httpx",
     "pytest",
 ]
 
@@ -77,7 +79,7 @@ docstring-code-format = true
 docstring-code-line-length = 120
 
 [tool.hatch.build.targets.wheel]
-packages = ["src"]
+packages = ["experiments", "src"]
 
 [build-system]
 requires = ["hatchling>=1.26"]

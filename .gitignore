@@ -189,6 +189,8 @@ data/*.db
 data/*.sqlite
 uploads/*
 !uploads/.gitkeep
+experiments/langfuse/*_preview.jsonl
+experiments/langfuse/*.log
 
 # Node
 node_modules/

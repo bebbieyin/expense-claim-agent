@@ -19,7 +19,16 @@ jobs:
   update-task-status:
     name: Update Task Status
     runs-on: ubuntu-latest
+    env:
+      CLICKUP_TOKEN: ${{ secrets.CLICKUP_TOKEN }}
     steps:
+      - name: Validate ClickUp token
+        run: |
+          if [[ -z "$CLICKUP_TOKEN" ]]; then
+            echo "CLICKUP_TOKEN repository secret is not configured."
+            exit 1
+          fi
+
       - name: Extract ClickUp Task ID
         id: extract
         run: |
@@ -37,8 +46,9 @@ jobs:
           steps.extract.outputs.task_id != '' &&
           github.event.action != 'closed'
         run: |
-          curl -s -X PUT "https://api.clickup.com/api/v2/task/${{ steps.extract.outputs.task_id }}" \
-            -H "Authorization: ${{ secrets.CLICKUP_TOKEN }}" \
+          curl --fail-with-body --silent --show-error \
+            -X PUT "https://api.clickup.com/api/v2/task/${{ steps.extract.outputs.task_id }}" \
+            -H "Authorization: $CLICKUP_TOKEN" \
             -H "Content-Type: application/json" \
             -d '{"status": "in review"}'
 
@@ -48,7 +58,8 @@ jobs:
           github.event.action == 'closed' &&
           github.event.pull_request.merged == true
         run: |
-          curl -s -X PUT "https://api.clickup.com/api/v2/task/${{ steps.extract.outputs.task_id }}" \
-            -H "Authorization: ${{ secrets.CLICKUP_TOKEN }}" \
+          curl --fail-with-body --silent --show-error \
+            -X PUT "https://api.clickup.com/api/v2/task/${{ steps.extract.outputs.task_id }}" \
+            -H "Authorization: $CLICKUP_TOKEN" \
             -H "Content-Type: application/json" \
             -d '{"status": "complete"}'
