@@ -10,7 +10,7 @@ from src.client.langfuse_client import compile_prompt, get_prompt
 from src.shared.schemas import ExtractedReceipt
 
 LANGFUSE_PROMPT_NAME = "receipt-key-info-extraction"
-LANGFUSE_PROMPT_LABEL = "staging"
+LANGFUSE_PROMPT_LABEL = "latest"
 
 
 def _azure_openai_extract(
