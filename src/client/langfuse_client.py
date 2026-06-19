@@ -1,10 +1,16 @@
 """Langfuse client and prompt helpers."""
 
 import os
+from contextlib import AbstractContextManager, nullcontext
 from functools import lru_cache
 
 from langfuse import Langfuse
 from langfuse.model import BasePromptClient
+
+
+def is_langfuse_enabled() -> bool:
+    """Return whether Langfuse integration is enabled."""
+    return os.getenv("LANGFUSE_ENABLED", "false").lower() == "true"
 
 
 @lru_cache(maxsize=1)
@@ -38,3 +44,30 @@ def compile_prompt(
     if isinstance(compiled, str):
         return [{"role": "user", "content": compiled}]
     return compiled
+
+
+def observation(
+    *,
+    name: str,
+    as_type: str = "span",
+    input_data: object = None,
+    metadata: dict[str, object] | None = None,
+    trace_id: str | None = None,
+) -> AbstractContextManager[object | None]:
+    """Start a Langfuse observation when tracing is enabled."""
+    if not is_langfuse_enabled():
+        return nullcontext()
+    return get_langfuse_client().start_as_current_observation(
+        trace_context={"trace_id": trace_id} if trace_id else None,
+        name=name,
+        as_type=as_type,
+        input=input_data,
+        metadata=metadata,
+    )
+
+
+def get_trace_url(trace_id: str) -> str | None:
+    """Return the Langfuse URL for a stored trace ID."""
+    if not is_langfuse_enabled():
+        return None
+    return get_langfuse_client().get_trace_url(trace_id=trace_id)
