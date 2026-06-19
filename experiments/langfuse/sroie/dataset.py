@@ -1,4 +1,4 @@
-"""Shared SROIE dataset parsing and normalization."""
+"""SROIE dataset parsing and normalization."""
 
 import json
 import random

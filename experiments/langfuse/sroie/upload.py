@@ -1,24 +1,30 @@
 """Run OCR once and upload frozen SROIE inputs to Langfuse."""
 
 import argparse
+import csv
 import json
 import logging
-import os
-import time
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
 from dotenv import load_dotenv
 
-from experiments.langfuse.sroie import expected_receipt, sample_sroie_items
-from src.langfuse_client import get_langfuse_client
-from src.ocr import extract_document
+from experiments.langfuse.sroie.dataset import (
+    expected_receipt,
+    sample_sroie_items,
+)
+from experiments.langfuse.upload_dataset import (
+    DatasetItem,
+    DatasetUploadOptions,
+    build_ocr_dataset_item,
+    upload_dataset,
+)
 
 load_dotenv()
 
 DEFAULT_SOURCE = Path("/Users/yin/Documents/projects/SROIE/task 3")
-DEFAULT_SEED = 42
+DEFAULT_SEED = 21
 DEFAULT_SAMPLE_SIZE = 10
 logger = logging.getLogger(__name__)
 
@@ -40,24 +46,18 @@ def default_dataset_name(seed: int, sample_size: int) -> str:
     return f"sroie/seed-{seed}-n-{sample_size}"
 
 
-def build_dataset_item(item: dict[str, Any]) -> dict[str, Any]:
-    """Run OCR and build one frozen Langfuse dataset item."""
-    ocr_result = extract_document(str(item["image_path"]))
-    return {
-        "input": {
-            "ocr_text": ocr_result.full_text,
-            "ocr_lines": [line.model_dump(mode="json") for line in ocr_result.lines],
-            "tables": [table.model_dump(mode="json") for table in ocr_result.tables],
-        },
-        "expected_output": expected_receipt(item["label"]),
-        "metadata": {
+def build_dataset_item(item: DatasetItem) -> dict[str, Any]:
+    """Map one SROIE item to a frozen OCR dataset record."""
+    image_path = Path(item["image_path"])
+    return build_ocr_dataset_item(
+        image_path=image_path,
+        expected_output=expected_receipt(item["label"]),
+        metadata={
             "document_id": item["id"],
             "document_type": "receipt",
-            "dataset_source": "SROIE Task 3",
-            "ocr_provider": ocr_result.provider,
-            "ocr_model": ocr_result.model,
+            "dataset_source": str(image_path.parents[1]),
         },
-    }
+    )
 
 
 def upload_sample(*, options: UploadOptions) -> list[dict[str, Any]]:
@@ -71,47 +71,39 @@ def upload_sample(*, options: UploadOptions) -> list[dict[str, Any]]:
         options.seed,
         options.sample_size,
     )
-    client = None if options.dry_run else get_langfuse_client()
-    mode = "Uploading" if client is not None else "Preparing"
-    print(  # noqa: T201
-        f"{mode} {len(items)} items for dataset '{name}'",
-        flush=True,
-    )
-    if client is not None and os.getenv("OCR_PROVIDER", "mock") == "mock":
-        msg = (
-            "Live dataset upload requires a real OCR provider. "
-            "Set OCR_PROVIDER=azure_ocr."
-        )
-        raise ValueError(msg)
-    if client is not None:
-        client.create_dataset(
+    return upload_dataset(
+        items=items,
+        build_item=build_dataset_item,
+        options=DatasetUploadOptions(
             name=name,
             description="Frozen Azure OCR inputs from a deterministic SROIE sample.",
             metadata={
                 "seed": options.seed,
                 "sample_size": options.sample_size,
-                "source": "SROIE Task 3",
+                "source": str(options.source),
             },
-        )
+            dry_run=options.dry_run,
+            sleep_between=options.sleep_between,
+        ),
+    )
 
-    records = []
-    for index, item in enumerate(items, start=1):
-        print(  # noqa: T201
-            f"[{index}/{len(items)}] Processing OCR: {item['id']}",
-            flush=True,
+
+def write_preview(path: Path, records: list[dict[str, Any]]) -> None:
+    """Write prepared records as CSV."""
+    if path.suffix.lower() != ".csv":
+        msg = "Preview path must use a .csv extension."
+        raise ValueError(msg)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with path.open("w", encoding="utf-8", newline="") as preview:
+        writer = csv.DictWriter(
+            preview,
+            fieldnames=("input", "expected_output", "metadata"),
         )
-        record = build_dataset_item(item)
-        records.append(record)
-        if client is not None:
-            client.create_dataset_item(dataset_name=name, **record)
-        status = "Uploaded" if client is not None else "Prepared"
-        print(  # noqa: T201
-            f"[{index}/{len(items)}] {status}: {item['id']}",
-            flush=True,
-        )
-        if options.sleep_between:
-            time.sleep(options.sleep_between)
-    return records
+        writer.writeheader()
+        for record in records:
+            writer.writerow(
+                {key: json.dumps(record.get(key)) for key in writer.fieldnames}
+            )
 
 
 def main() -> None:
@@ -123,7 +115,11 @@ def main() -> None:
     parser.add_argument("--dataset-name")
     parser.add_argument("--sleep-between", type=float, default=0)
     parser.add_argument("--live", action="store_true")
-    parser.add_argument("--preview", type=Path)
+    parser.add_argument(
+        "--preview",
+        type=Path,
+        help="Write prepared records to a .csv file.",
+    )
     args = parser.parse_args()
 
     records = upload_sample(
@@ -137,10 +133,7 @@ def main() -> None:
         ),
     )
     if args.preview:
-        args.preview.parent.mkdir(parents=True, exist_ok=True)
-        with args.preview.open("w", encoding="utf-8") as preview:
-            for record in records:
-                preview.write(f"{json.dumps(record)}\n")
+        write_preview(args.preview, records)
     mode = "uploaded" if args.live else "prepared"
     logger.info(
         "%s %d records using seed %d.",

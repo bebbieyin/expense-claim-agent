@@ -189,7 +189,7 @@ data/*.db
 data/*.sqlite
 uploads/*
 !uploads/.gitkeep
-experiments/langfuse/*_preview.jsonl
+experiments/langfuse/*_preview.csv
 experiments/langfuse/*.log
 
 # Node

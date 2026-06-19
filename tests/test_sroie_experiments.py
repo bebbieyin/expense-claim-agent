@@ -1,5 +1,6 @@
 """Tests for deterministic SROIE experiment preparation."""
 
+import csv
 import json
 from pathlib import Path
 
@@ -11,14 +12,19 @@ from experiments.langfuse.evaluators import (
     ned,
 )
 from experiments.langfuse.run_experiment import ExperimentProgress
-from experiments.langfuse.sroie import (
+from experiments.langfuse.sroie.dataset import (
     expected_receipt,
     normalize_date,
     normalize_total,
     paired_sroie_items,
     sample_sroie_items,
 )
-from experiments.langfuse.upload_sroie_dataset import UploadOptions, upload_sample
+from experiments.langfuse.sroie.upload import (
+    UploadOptions,
+    upload_sample,
+    write_preview,
+)
+from experiments.langfuse.upload_dataset import DatasetUploadOptions, upload_dataset
 
 SAMPLE_SIZE = 5
 EXPECTED_DOLLAR_TOTAL = 6.60
@@ -184,11 +190,11 @@ def test_dataset_upload_prints_progress(
         {"id": "receipt-02"},
     ]
     monkeypatch.setattr(
-        "experiments.langfuse.upload_sroie_dataset.sample_sroie_items",
+        "experiments.langfuse.sroie.upload.sample_sroie_items",
         lambda *_args, **_kwargs: items,
     )
     monkeypatch.setattr(
-        "experiments.langfuse.upload_sroie_dataset.build_dataset_item",
+        "experiments.langfuse.sroie.upload.build_dataset_item",
         lambda item: {"metadata": {"document_id": item["id"]}},
     )
 
@@ -206,4 +212,54 @@ def test_dataset_upload_prints_progress(
         "[1/2] Prepared: receipt-01",
         "[2/2] Processing OCR: receipt-02",
         "[2/2] Prepared: receipt-02",
+    ]
+
+
+def test_generic_dataset_upload_accepts_non_sroie_items() -> None:
+    """The shared upload loop does not depend on the SROIE item format."""
+    records = upload_dataset(
+        items=[{"id": "document-01", "target": {"value": "expected"}}],
+        build_item=lambda item: {
+            "input": {"ocr_text": "example"},
+            "expected_output": item["target"],
+            "metadata": {"document_id": item["id"]},
+        },
+        options=DatasetUploadOptions(
+            name="other-dataset",
+            description="Another OCR dataset.",
+            metadata={"source": "other"},
+        ),
+    )
+
+    assert records == [
+        {
+            "input": {"ocr_text": "example"},
+            "expected_output": {"value": "expected"},
+            "metadata": {"document_id": "document-01"},
+        }
+    ]
+
+
+def test_preview_can_be_written_as_csv(tmp_path: Path) -> None:
+    """CSV previews JSON-encode nested Langfuse dataset values."""
+    preview_path = tmp_path / "preview.csv"
+    records = [
+        {
+            "input": {"ocr_text": "example"},
+            "expected_output": {"merchant_name": "Example"},
+            "metadata": {"document_id": "receipt-01"},
+        }
+    ]
+
+    write_preview(preview_path, records)
+
+    with preview_path.open(encoding="utf-8", newline="") as preview:
+        rows = list(csv.DictReader(preview))
+
+    assert rows == [
+        {
+            "input": json.dumps(records[0]["input"]),
+            "expected_output": json.dumps(records[0]["expected_output"]),
+            "metadata": json.dumps(records[0]["metadata"]),
+        }
     ]

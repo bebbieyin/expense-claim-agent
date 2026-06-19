@@ -11,7 +11,7 @@ from langfuse.api import DatasetItem
 from langfuse.model import BasePromptClient
 
 from experiments.langfuse.evaluators import evaluate_receipt
-from experiments.langfuse.upload_sroie_dataset import (
+from experiments.langfuse.sroie.upload import (
     DEFAULT_SAMPLE_SIZE,
     DEFAULT_SEED,
     default_dataset_name,
