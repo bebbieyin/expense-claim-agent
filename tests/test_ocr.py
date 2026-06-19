@@ -6,7 +6,7 @@ from types import SimpleNamespace
 import httpx
 import pytest
 
-from src.workflow.ocr import (
+from src.workflow.agents.receipt_extraction.ocr import (
     MOCK_OCR_TEXT,
     OCR_TIMEOUT_SECONDS,
     _azure_ocr,

@@ -1,4 +1,4 @@
-"""Deterministic validation rules for submitted claims."""
+"""Deterministic claim validation rules."""
 
 from datetime import date
 from typing import Any

@@ -150,7 +150,7 @@ def test_missing_extracted_total_needs_review(
 ) -> None:
     """Missing optional receipt fields do not crash trail generation."""
     monkeypatch.setattr(
-        "src.workflow.agents.extract_receipt_fields",
+        "src.workflow.agents.receipt_extraction.agent.extract_receipt_fields",
         lambda _raw_text: ExtractedReceipt(
             merchant_name="Restoran ABC",
             receipt_date="2026-06-16",
@@ -237,7 +237,7 @@ def test_review_failure_preserves_langfuse_trace_id(
         lambda: client,
     )
     monkeypatch.setattr(
-        "src.workflow.agents.extract_text_from_receipt",
+        "src.workflow.agents.receipt_extraction.agent.extract_text_from_receipt",
         MagicMock(side_effect=RuntimeError("OCR failed")),
     )
     session = MagicMock(spec=Session)

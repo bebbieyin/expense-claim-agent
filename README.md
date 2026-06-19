@@ -21,11 +21,23 @@ flowchart TD
     reviewer -->|Reject| rejected
 ```
 
-Receipt extraction uses third-party model providers. Validation,
-policy compliance, duplicate checking, decision-making, and explanation are
-deterministic workflow steps. Claims marked `needs_review` are placed in the
-Reviewer Team approval queue, where a reviewer records the final approval or
-rejection and optional review notes.
+The workflow consists of six agents:
+
+1. **Receipt Extraction Agent** — Runs OCR to extract text and LLM to assign relevant info.
+2. **Claim Validation Agent** — Compares submitted claim details against the
+   extracted receipt info.
+3. **Policy Compliance Agent** — Checks the claim against company policy
+   rules.
+4. **Duplicate Check Agent** — Checks previous claims for possible duplicate
+   receipts.
+5. **Decision Agent** — Determines whether the claim is approved, rejected, or
+   needs review.
+6. **Explanation Agent** — Generates a concise summary of the review result.
+
+Validation, policy compliance, duplicate checking, decision-making, and
+explanation are deterministic workflow steps. Claims marked `needs_review`
+are placed in the Reviewer Team approval queue, where a reviewer records the
+final approval or rejection and optional review notes.
 
 ## Setup
 

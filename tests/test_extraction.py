@@ -7,7 +7,7 @@ import pytest
 
 from prompts.receipt_extraction import EXTRACTION_SYSTEM_PROMPT
 from src.shared.schemas import ExtractedReceipt
-from src.workflow.extraction import (
+from src.workflow.agents.receipt_extraction.extraction import (
     _azure_openai_extract,
     extract_receipt_fields,
     extract_structured_document,
@@ -45,7 +45,10 @@ def test_azure_openai_returns_validated_structured_output(
             )
         )
     )
-    monkeypatch.setattr("src.workflow.extraction.AzureOpenAI", azure_openai)
+    monkeypatch.setattr(
+        "src.workflow.agents.receipt_extraction.extraction.AzureOpenAI",
+        azure_openai,
+    )
     monkeypatch.setenv("AZURE_OPENAI_API_KEY", "key")
     monkeypatch.setenv("AZURE_OPENAI_ENDPOINT", "https://example.test")
     monkeypatch.setenv("AZURE_OPENAI_DEPLOYMENT", "receipt-model")
@@ -92,10 +95,16 @@ def test_receipt_extraction_uses_langfuse_prompt(
     structured_extract = MagicMock(return_value=expected)
     monkeypatch.setenv("LLM_PROVIDER", "azure_openai")
     monkeypatch.setenv("LANGFUSE_ENABLED", "true")
-    monkeypatch.setattr("src.workflow.extraction.get_prompt", get_prompt)
-    monkeypatch.setattr("src.workflow.extraction.compile_prompt", compile_prompt)
     monkeypatch.setattr(
-        "src.workflow.extraction.extract_structured_document",
+        "src.workflow.agents.receipt_extraction.extraction.get_prompt",
+        get_prompt,
+    )
+    monkeypatch.setattr(
+        "src.workflow.agents.receipt_extraction.extraction.compile_prompt",
+        compile_prompt,
+    )
+    monkeypatch.setattr(
+        "src.workflow.agents.receipt_extraction.extraction.extract_structured_document",
         structured_extract,
     )
 

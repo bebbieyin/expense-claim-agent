@@ -24,8 +24,8 @@ from src.database.operations import (
 from src.shared.schemas import ClaimCreate, ExtractedReceipt
 from src.shared.utils import next_claim_id, save_uploaded_receipt
 from src.workflow.agents import run_review
-from src.workflow.policy import POLICIES
-from src.workflow.validation import validate_claim
+from src.workflow.agents.claim_validation.validation import validate_claim
+from src.workflow.agents.policy_compliance.policy import POLICIES
 
 EXPENSE_CATEGORIES = ["Meals", "Transport", "Office Supplies", "Medical"]
 DEPARTMENTS = ["Sales & Marketing", "IT", "HR", "Finance", "Operations"]

@@ -1,4 +1,4 @@
-"""Structured document extraction."""
+"""Structured receipt extraction."""
 
 import os
 
