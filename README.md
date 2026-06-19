@@ -54,7 +54,7 @@ extraction will use the local fallback prompt in
 
 ## Run locally
 
-Start the Streamlit UI:
+Start the application:
 
 ```bash
 just run-ui
