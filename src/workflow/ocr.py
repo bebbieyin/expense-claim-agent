@@ -6,7 +6,7 @@ from typing import Any
 
 import httpx
 
-from src.schemas import OCRLine, OCRResult
+from src.shared.schemas import OCRLine, OCRResult
 
 MOCK_OCR_TEXT = "Restoran ABC\nDate: 2026-06-16\nTotal: MYR 45.90"
 OCR_TIMEOUT_SECONDS = 30

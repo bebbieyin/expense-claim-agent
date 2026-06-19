@@ -4,12 +4,12 @@ from typing import Any
 
 from sqlalchemy.orm import Session
 
-from src.database import find_duplicate_receipt
-from src.extraction import extract_receipt_fields
-from src.ocr import extract_text_from_receipt
-from src.policy import check_policy
-from src.schemas import CheckResult, ClaimReviewState, ExtractedReceipt
-from src.validation import validate_claim
+from src.database.operations import find_duplicate_receipt
+from src.shared.schemas import CheckResult, ClaimReviewState, ExtractedReceipt
+from src.workflow.extraction import extract_receipt_fields
+from src.workflow.ocr import extract_text_from_receipt
+from src.workflow.policy import check_policy
+from src.workflow.validation import validate_claim
 
 MINIMUM_EXTRACTION_CONFIDENCE = 0.75
 

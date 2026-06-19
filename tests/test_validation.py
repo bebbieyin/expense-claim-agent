@@ -1,7 +1,7 @@
 """Tests for claim-to-receipt validation."""
 
-from src.schemas import ExtractedReceipt
-from src.validation import validate_claim
+from src.shared.schemas import ExtractedReceipt
+from src.workflow.validation import validate_claim
 
 
 def test_matching_claim_passes_core_validation() -> None:

@@ -1,4 +1,4 @@
-"""SQLAlchemy models for persisted expense claims."""
+"""Database tables."""
 
 from datetime import date, datetime
 
@@ -7,7 +7,7 @@ from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 
 
 class Base(DeclarativeBase):
-    """Base for application database models."""
+    """Base for application database entities."""
 
 
 class Employee(Base):
